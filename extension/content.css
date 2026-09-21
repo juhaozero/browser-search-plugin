@@ -1,0 +1,21 @@
+#content_left:has(#bsp-results[data-mode="single-center"]) {
+  overflow: visible;
+}
+
+#bsp-results[data-mode="single-center"] {
+  box-sizing: border-box;
+  max-width: none;
+}
+
+mark.bsp-hl {
+  color: inherit;
+  border-radius: 2px;
+}
+
+mark.bsp-hl[data-bsp-seg="0"] { background-color: #fff3a0; }
+mark.bsp-hl[data-bsp-seg="1"] { background-color: #b8f2c8; }
+mark.bsp-hl[data-bsp-seg="2"] { background-color: #a8e7ff; }
+mark.bsp-hl[data-bsp-seg="3"] { background-color: #ffc9a8; }
+mark.bsp-hl[data-bsp-seg="4"] { background-color: #f6c1e0; }
+mark.bsp-hl[data-bsp-seg="5"] { background-color: #d7c6ff; }
+mark.bsp-hl[data-bsp-seg="6"] { background-color: #c8f7e4; }

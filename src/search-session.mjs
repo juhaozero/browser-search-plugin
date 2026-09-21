@@ -206,12 +206,26 @@ function highlightHtml(text, segments) {
   let cursor = 0;
   for (const match of text.matchAll(pattern)) {
     const index = match.index ?? 0;
+    const slot = segmentSlot(match[0], segments);
     html += escapeHtml(text.slice(cursor, index));
-    html += `<mark class="bsp-hl">${escapeHtml(match[0])}</mark>`;
+    html += `<mark class="bsp-hl" data-bsp-seg="${slot}" style="background-color: ${segmentColor(slot)}">${escapeHtml(match[0])}</mark>`;
     cursor = index + match[0].length;
   }
   html += escapeHtml(text.slice(cursor));
   return html;
+}
+
+function segmentSlot(matched, segments) {
+  const exact = segments.indexOf(matched);
+  if (exact >= 0) return exact;
+  const folded = matched.toLowerCase();
+  const insensitive = segments.findIndex((segment) => segment.toLowerCase() === folded);
+  return insensitive >= 0 ? insensitive : 0;
+}
+
+function segmentColor(index) {
+  const hue = (index * 47) % 360;
+  return `hsl(${hue} 90% 78%)`;
 }
 
 /**

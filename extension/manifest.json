@@ -1,0 +1,14 @@
+{
+  "manifest_version": 3,
+  "name": "搜索结果阅读",
+  "version": "0.0.1",
+  "description": "在百度桌面网页搜索结果页上高亮查询，并把结果条目排成单列居中。",
+  "content_scripts": [
+    {
+      "matches": ["https://www.baidu.com/s*"],
+      "js": ["content.js"],
+      "css": ["content.css"],
+      "run_at": "document_idle"
+    }
+  ]
+}
