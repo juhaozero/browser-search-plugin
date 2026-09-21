@@ -225,9 +225,9 @@ test("靠近底部的判定看结果列表底边", () => {
   }, 800), true);
 });
 
-test("百度启动默认打开自动翻页", () => {
+test("百度启动默认打开自动翻页", async () => {
   const { document } = parseHTML(baiduPage("chrome"));
-  const boot = bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome", {}, { attachScroll: false });
+  const boot = await bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome", {}, { attachScroll: false });
   assert.equal(boot.pager.enabled, true);
 });
 

@@ -1,3 +1,21 @@
+#content_left:has(#bsp-results[data-mode="single-center"]),
+#rso:has(#bsp-results[data-mode="single-center"]),
+#search:has(#bsp-results[data-mode="single-center"]) {
+  overflow: visible;
+}
+
+#bsp-results[data-mode="single-center"] {
+  box-sizing: border-box;
+  max-width: none;
+}
+
+#bsp-results[data-mode="double"] {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  box-sizing: border-box;
+}
+
 #bsp-status {
   margin: 12px 0;
   text-align: center;
@@ -7,15 +25,6 @@
 
 #bsp-status[hidden] {
   display: none !important;
-}
-
-#content_left:has(#bsp-results[data-mode="single-center"]) {
-  overflow: visible;
-}
-
-#bsp-results[data-mode="single-center"] {
-  box-sizing: border-box;
-  max-width: none;
 }
 
 mark.bsp-hl {

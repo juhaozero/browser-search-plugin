@@ -4,9 +4,9 @@ import { test } from "node:test";
 import { parseHTML } from "linkedom";
 import { alignSingleCenter, bootBaiduPage } from "../src/content-baidu.mjs";
 
-test("百度网页搜索默认单列居中并给不同高亮段不同标记", () => {
+test("百度网页搜索默认单列居中并给不同高亮段不同标记", async () => {
   const { document } = parseHTML(baiduPage("chrome 扩展"));
-  const boot = bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome%20%E6%89%A9%E5%B1%95", {
+  const boot = await bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome%20%E6%89%A9%E5%B1%95", {
     viewportWidth: 1200,
     parentLeft: 80,
   }, { attachScroll: false });
@@ -27,14 +27,14 @@ test("百度网页搜索默认单列居中并给不同高亮段不同标记", ()
   assert.deepEqual([...document.querySelectorAll("[id^='bsp-']")].map((element) => element.id), ["bsp-results"]);
 });
 
-test("首页、手机版和资讯页不改页面", () => {
+test("首页、手机版和资讯页不改页面", async () => {
   for (const url of [
     "https://www.baidu.com/",
     "https://m.baidu.com/s?wd=chrome",
     "https://www.baidu.com/s?wd=chrome&tn=news",
   ]) {
     const { document } = parseHTML(baiduPage("chrome"));
-    assert.equal(bootBaiduPage(document, url), null);
+    assert.equal(await bootBaiduPage(document, url), null);
     assert.equal(document.getElementById("bsp-results"), null);
     assert.equal(document.querySelector("mark"), null);
   }
@@ -50,21 +50,21 @@ test("单列居中按视口把结果列放到页面中间", () => {
   assert.equal(box.style.width, "368px");
 });
 
-test("清单只注入百度且不申请落地页权限", () => {
+test("清单只注入搜索结果页且不申请落地页权限", () => {
   const manifest = JSON.parse(readFileSync(new URL("../extension/manifest.json", import.meta.url), "utf8"));
   const serialized = JSON.stringify(manifest);
   assert.equal(manifest.manifest_version, 3);
-  assert.equal(manifest.permissions, undefined);
+  assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
-  assert.deepEqual(manifest.content_scripts[0].matches, ["https://www.baidu.com/s*"]);
+  assert.equal(manifest.content_scripts[0].matches.includes("https://www.baidu.com/s*"), true);
+  assert.equal(manifest.content_scripts[0].matches.includes("https://www.google.com/search*"), true);
   assert.equal(manifest.content_scripts[0].js.includes("content.js"), true);
   assert.equal(serialized.includes("<all_urls>"), false);
-  assert.equal(serialized.includes("google.com"), false);
 });
 
-test("只差大小写的高亮段仍用各自的底色", () => {
+test("只差大小写的高亮段仍用各自的底色", async () => {
   const { document } = parseHTML(baiduPage("Chrome chrome"));
-  bootBaiduPage(document, "https://www.baidu.com/s?wd=Chrome%20chrome");
+  await bootBaiduPage(document, "https://www.baidu.com/s?wd=Chrome%20chrome", {}, { attachScroll: false });
   const marks = [...document.querySelectorAll("h3 mark.bsp-hl")];
   assert.equal(marks[0].dataset.bspSeg, "0");
   assert.equal(marks[1].dataset.bspSeg, "1");

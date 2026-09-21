@@ -15,6 +15,7 @@ test("只认桌面版网页搜索", () => {
   assert.equal(isDesktopWebSearch("https://m.baidu.com/s?wd=chrome"), false);
   assert.equal(isDesktopWebSearch("https://www.google.com/search?q=chrome&tbm=isch"), false);
   assert.equal(isDesktopWebSearch("https://www.google.com/search?q=chrome&udm=2"), false);
+  assert.equal(isDesktopWebSearch("https://www.google.com/search?q=chrome&udm=14"), true);
   assert.equal(isDesktopWebSearch("https://www.baidu.com/s?wd=chrome&tn=news"), false);
   assert.equal(isDesktopWebSearch("https://www.baidu.com/"), false);
 });

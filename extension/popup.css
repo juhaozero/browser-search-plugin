@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+  min-width: 220px;
+  font: 13px/1.4 system-ui, sans-serif;
+  color: #1f1f1f;
+  background: #fff;
+}
+
+#bsp-prefs {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+fieldset {
+  margin: 0;
+  padding: 8px 10px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+legend {
+  padding: 0 4px;
+  font-weight: 600;
+}
+
+label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.toggle {
+  margin-top: 0;
+}

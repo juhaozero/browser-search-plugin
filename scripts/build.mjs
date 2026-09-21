@@ -5,9 +5,10 @@ await rm("dist", { recursive: true, force: true });
 await mkdir("dist", { recursive: true });
 
 await esbuild.build({
-  entryPoints: ["src/content-baidu.mjs"],
+  entryPoints: ["src/content.mjs", "src/popup.mjs"],
   bundle: true,
-  outfile: "dist/content.js",
+  outdir: "extension",
+  entryNames: "[name]",
   format: "iife",
   platform: "browser",
   target: "chrome120",
@@ -15,3 +16,9 @@ await esbuild.build({
 
 await cp("extension/manifest.json", "dist/manifest.json");
 await cp("extension/content.css", "dist/content.css");
+await cp("extension/content.js", "dist/content.js");
+await cp("extension/popup.html", "dist/popup.html");
+await cp("extension/popup.css", "dist/popup.css");
+await cp("extension/popup.js", "dist/popup.js");
+
+console.log("已构建，可加载 extension 或 dist 目录");

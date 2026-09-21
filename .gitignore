@@ -9,6 +9,9 @@ lerna-debug.log*
 
 node_modules
 dist
+# popup.js and content.js are build outputs
+extension/content.js
+extension/popup.js
 dist-ssr
 *.local
 

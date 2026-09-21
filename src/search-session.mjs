@@ -47,6 +47,8 @@ export function nextPageUrl(url) {
  * @param {{ columnMode?: string, highlight?: boolean, autoPage?: boolean }} prefs
  */
 export function createSearchSession(document, url, prefs) {
+  const engine = detectEngine(url);
+  if (!engine) throw new Error("不是桌面版网页搜索");
   const state = {
     columnMode: prefs.columnMode ?? "single-center",
     highlight: prefs.highlight ?? true,
@@ -67,15 +69,18 @@ export function createSearchSession(document, url, prefs) {
     get autoPage() {
       return state.autoPage;
     },
+    get engine() {
+      return engine.name;
+    },
     ingest(nextDocument) {
       if (!state.autoPage || appendedPages >= MAX_APPENDED_PAGES) return { added: 0, stopped: true };
-      const known = new Set(organicItems(document).map(itemHref));
-      const fresh = organicItems(nextDocument).filter((item) => {
-        const href = itemHref(item);
+      const known = new Set(listOrganic(document).map((item) => engine.itemHref(item)));
+      const fresh = listOrganic(nextDocument).filter((item) => {
+        const href = engine.itemHref(item);
         return href !== "" && !known.has(href);
       });
       if (fresh.length === 0) return { added: 0, stopped: true };
-      const dest = document.getElementById("bsp-results") ?? document.getElementById("content_left");
+      const dest = document.getElementById("bsp-results") ?? engine.resultsRoot(document);
       if (!dest) return { added: 0, stopped: true };
       for (const item of fresh) dest.appendChild(document.importNode(item, true));
       appendedPages += 1;
@@ -109,19 +114,19 @@ export function createSearchSession(document, url, prefs) {
   }
 
   function moveResults(mode) {
-    const left = document.getElementById("content_left");
-    if (!left) return;
-    const pending = [...left.children].filter(isOrganicItem);
+    const root = engine.resultsRoot(document);
+    if (!root) return;
+    const pending = listOrganic(document).filter((item) => !document.getElementById("bsp-results")?.contains(item));
     for (const item of pending) rememberOrigin(item);
-    const box = ensureBox(left);
+    const box = ensureBox(root);
     box.dataset.mode = mode;
     for (const item of pending) box.appendChild(item);
   }
 
   function restoreOriginal() {
     const box = document.getElementById("bsp-results");
-    const left = document.getElementById("content_left");
-    if (!box || !left) return;
+    const root = engine.resultsRoot(document);
+    if (!box || !root) return;
     const appended = [...box.children].filter((item) => !origins.has(item));
     for (const item of [...box.children]) {
       const placeholder = origins.get(item);
@@ -130,16 +135,16 @@ export function createSearchSession(document, url, prefs) {
       placeholder.remove();
       origins.delete(item);
     }
-    for (const item of appended) left.appendChild(item);
+    for (const item of appended) root.appendChild(item);
     box.remove();
   }
 
-  function ensureBox(left) {
+  function ensureBox(root) {
     const existing = document.getElementById("bsp-results");
     if (existing) return existing;
     const box = document.createElement("div");
     box.id = "bsp-results";
-    left.insertBefore(box, left.firstChild);
+    root.insertBefore(box, root.firstChild);
     return box;
   }
 
@@ -151,9 +156,9 @@ export function createSearchSession(document, url, prefs) {
   }
 
   function paint() {
-    for (const item of organicItems(document)) {
-      const title = item.querySelector("h3 a");
-      const abstract = item.querySelector(".c-abstract");
+    for (const item of listOrganic(document)) {
+      const title = engine.titleNode(item);
+      const abstract = engine.abstractNode(item);
       if (state.highlight) {
         paintNode(title);
         paintNode(abstract);
@@ -173,19 +178,73 @@ export function createSearchSession(document, url, prefs) {
     if (!node) return;
     node.textContent = node.textContent;
   }
+
+  function listOrganic(root) {
+    return engine.organicItems(root);
+  }
 }
 
 /**
- * @param {ParentNode} root
+ * @param {string} url
  */
-function organicItems(root) {
-  return [...root.querySelectorAll("#bsp-results > .c-container, #content_left > .c-container")].filter(isOrganicItem);
+function detectEngine(url) {
+  const parsed = readUrl(url);
+  if (!parsed) return null;
+  if (isBaiduWeb(parsed)) return baiduEngine;
+  if (isGoogleWeb(parsed)) return googleEngine;
+  return null;
 }
+
+const baiduEngine = {
+  name: "baidu",
+  resultsRoot(document) {
+    return document.getElementById("content_left");
+  },
+  organicItems(root) {
+    return [...root.querySelectorAll("#bsp-results > .c-container, #content_left > .c-container")].filter(isBaiduOrganic);
+  },
+  titleNode(item) {
+    return item.querySelector("h3 a");
+  },
+  abstractNode(item) {
+    return item.querySelector(".c-abstract");
+  },
+  itemHref(item) {
+    return item.querySelector("h3 a")?.getAttribute("href") ?? "";
+  },
+};
+
+const googleEngine = {
+  name: "google",
+  resultsRoot(document) {
+    return document.getElementById("rso") ?? document.getElementById("search");
+  },
+  organicItems(root) {
+    return [...root.querySelectorAll("#bsp-results > .g, #rso .g")].filter((element) => {
+      if (!isGoogleOrganic(element)) return false;
+      if (element.parentElement?.closest(".g")) return false;
+      return true;
+    });
+  },
+  titleNode(item) {
+    const heading = item.querySelector("h3");
+    if (!heading) return null;
+    return heading.querySelector("a") ?? heading;
+  },
+  abstractNode(item) {
+    return item.querySelector(".VwiC3b, .IsZvec, .aCOpRe");
+  },
+  itemHref(item) {
+    const heading = item.querySelector("h3");
+    const link = heading?.querySelector("a") ?? heading?.closest("a") ?? item.querySelector("a[href]");
+    return link?.getAttribute("href") ?? "";
+  },
+};
 
 /**
  * @param {Element} element
  */
-function isOrganicItem(element) {
+function isBaiduOrganic(element) {
   return element.classList.contains("c-container")
     && element.querySelector(".ec-tuiguang") === null
     && element.querySelector("h3 a[href]") !== null;
@@ -194,8 +253,12 @@ function isOrganicItem(element) {
 /**
  * @param {Element} element
  */
-function itemHref(element) {
-  return element.querySelector("h3 a")?.getAttribute("href") ?? "";
+function isGoogleOrganic(element) {
+  if (!element.classList.contains("g")) return false;
+  if (element.closest("#tads, #bottomads, #tadsb, #rhs, .uEierd, [data-text-ad], .kp-wholepage")) return false;
+  if (!element.querySelector("h3") || !element.querySelector("a[href]")) return false;
+  if (element.querySelector(".related-question-pair")) return false;
+  return true;
 }
 
 /**
@@ -278,7 +341,8 @@ function isGoogleWeb(url) {
   if (url.pathname !== "/search") return false;
   if (!url.searchParams.get("q")) return false;
   if (url.searchParams.has("tbm")) return false;
-  if (url.searchParams.has("udm")) return false;
+  const udm = url.searchParams.get("udm");
+  if (udm && udm !== "14") return false;
   return true;
 }
 

@@ -127,7 +127,10 @@ export function createAutoPager(options) {
       tip.id = "bsp-status";
       tip.setAttribute("aria-live", "polite");
       tip.hidden = true;
-      const page = document.getElementById("page");
+      const page = document.getElementById("page")
+        ?? document.getElementById("pnnext")?.parentElement
+        ?? document.getElementById("botstuff")
+        ?? document.getElementById("nav");
       if (page?.parentNode) page.parentNode.insertBefore(tip, page);
       else document.body.appendChild(tip);
     }
@@ -145,7 +148,10 @@ export function isNearBottom(document, metrics, nearBottomPx = NEAR_BOTTOM_PX) {
     const scrollY = metrics.scrollY ?? 0;
     return metrics.listBottom - (scrollY + metrics.viewportHeight) <= nearBottomPx;
   }
-  const list = document.getElementById("bsp-results") ?? document.getElementById("content_left");
+  const list = document.getElementById("bsp-results")
+    ?? document.getElementById("content_left")
+    ?? document.getElementById("rso")
+    ?? document.getElementById("search");
   if (!list || typeof list.getBoundingClientRect !== "function") return false;
   const viewport = document.defaultView?.innerHeight ?? metrics?.viewportHeight;
   if (!viewport) return false;
