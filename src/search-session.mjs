@@ -53,7 +53,7 @@ export function createSearchSession(document, url, prefs) {
     autoPage: prefs.autoPage ?? true,
   };
   const segments = highlightSegments(queryFromUrl(url));
-  /** @type {WeakMap<Element, { parent: Node, next: Node | null }>} */
+  /** @type {WeakMap<Element, Comment>} */
   const origins = new WeakMap();
   let appendedPages = 0;
 
@@ -65,7 +65,7 @@ export function createSearchSession(document, url, prefs) {
       return appendedPages;
     },
     ingest(nextDocument) {
-      if (appendedPages >= MAX_APPENDED_PAGES) return { added: 0, stopped: true };
+      if (!state.autoPage || appendedPages >= MAX_APPENDED_PAGES) return { added: 0, stopped: true };
       const known = new Set(organicItems(document).map(itemHref));
       const fresh = organicItems(nextDocument).filter((item) => {
         const href = itemHref(item);
@@ -121,10 +121,11 @@ export function createSearchSession(document, url, prefs) {
     if (!box || !left) return;
     const appended = [...box.children].filter((item) => !origins.has(item));
     for (const item of [...box.children]) {
-      if (!origins.has(item)) continue;
-      const origin = origins.get(item);
-      if (origin.next && origin.next.parentNode === origin.parent) origin.parent.insertBefore(item, origin.next);
-      else origin.parent.appendChild(item);
+      const placeholder = origins.get(item);
+      if (!placeholder?.parentNode) continue;
+      placeholder.parentNode.insertBefore(item, placeholder);
+      placeholder.remove();
+      origins.delete(item);
     }
     for (const item of appended) left.appendChild(item);
     box.remove();
@@ -141,7 +142,9 @@ export function createSearchSession(document, url, prefs) {
 
   function rememberOrigin(item) {
     if (origins.has(item)) return;
-    origins.set(item, { parent: item.parentNode, next: item.nextSibling });
+    const placeholder = item.ownerDocument.createComment("bsp-origin");
+    item.parentNode.insertBefore(placeholder, item);
+    origins.set(item, placeholder);
   }
 
   function paint() {
@@ -258,8 +261,7 @@ function isGoogleWeb(url) {
   if (url.pathname !== "/search") return false;
   if (!url.searchParams.get("q")) return false;
   if (url.searchParams.has("tbm")) return false;
-  const udm = url.searchParams.get("udm");
-  if (udm && udm !== "14") return false;
+  if (url.searchParams.has("udm")) return false;
   return true;
 }
 

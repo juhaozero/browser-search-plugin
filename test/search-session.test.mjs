@@ -35,6 +35,10 @@ test("下一页地址从当前页往后推一页", () => {
     "https://www.google.com/search?q=chrome&start=20",
   );
   assert.equal(nextPageUrl("https://m.baidu.com/s?wd=chrome"), null);
+  assert.equal(nextPageUrl("https://www.baidu.com/"), null);
+  assert.equal(nextPageUrl("https://www.baidu.com/s?wd=chrome&tn=news"), null);
+  assert.equal(nextPageUrl("https://www.google.com/search?q=chrome&tbm=isch"), null);
+  assert.equal(nextPageUrl("https://www.google.com/search?q=chrome&udm=2"), null);
 });
 
 test("高亮只出现在结果条目的标题和摘要上", () => {
@@ -145,6 +149,45 @@ test("接上下一页时跳过已有链接，没有新结果就停，最多再�
   assert.equal(fresh.querySelector("#page").textContent, "下一页");
   assert.equal(fresh.querySelectorAll("mark.bsp-hl").length > 0, true);
 });
+
+test("自动翻页关掉时不再接入下一页", () => {
+  const { document } = parseHTML(baiduPage("chrome"));
+  const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
+    columnMode: "original",
+    highlight: false,
+    autoPage: false,
+  });
+  const next = parseHTML(resultPage("https://example.com/p1", "下一页 chrome")).document;
+  assert.deepEqual(session.ingest(next), { added: 0, stopped: true });
+  assert.equal(session.appendedPages, 0);
+  assert.equal(document.querySelector("a[href='https://example.com/p1']"), null);
+});
+
+test("紧挨的多条结果从每种列模式切回原始模式时保持原顺序", () => {
+  for (const columnMode of ["single", "single-center", "double"]) {
+    const { document } = parseHTML(adjacentPage());
+    const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
+      columnMode,
+      highlight: false,
+      autoPage: true,
+    });
+    session.ingest(parseHTML(resultPage("https://example.com/p1", "下一页")).document);
+    session.apply({ columnMode: "original" });
+    const hrefs = [...document.querySelectorAll("#content_left > .c-container h3 a")].map((link) =>
+      link.getAttribute("href"),
+    );
+    assert.deepEqual(hrefs, [
+      "https://example.com/a",
+      "https://example.com/b",
+      "https://ad.example/x",
+      "https://example.com/p1",
+    ]);
+  }
+});
+
+function adjacentPage() {
+  return `<!doctype html><html><body><div id="content_left"><div class="c-container"><h3><a href="https://example.com/a">甲</a></h3></div><div class="c-container"><h3><a href="https://example.com/b">乙</a></h3></div><div class="c-container"><h3><a href="https://ad.example/x">广告</a></h3><span class="ec-tuiguang">广告</span></div></div><div id="page">下一页</div></body></html>`;
+}
 
 function baiduPage(query) {
   return `<!doctype html><html><body>
