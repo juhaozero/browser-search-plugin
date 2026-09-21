@@ -1,9 +1,10 @@
 import { createSearchSession, isDesktopWebSearch } from "./search-session.mjs";
+import { createAutoPager, fetchHtmlDocument } from "./auto-page.mjs";
 
 const DEFAULT_PREFS = {
   columnMode: "single-center",
   highlight: true,
-  autoPage: false,
+  autoPage: true,
 };
 
 const CENTER_WIDTH = 680;
@@ -12,8 +13,9 @@ const CENTER_WIDTH = 680;
  * @param {Document} document
  * @param {string} url
  * @param {{ viewportWidth?: number, parentLeft?: number }} [layout]
+ * @param {{ fetchDocument?: (url: string) => Promise<Document>, attachScroll?: boolean }} [deps]
  */
-export function bootBaiduPage(document, url, layout = {}) {
+export function bootBaiduPage(document, url, layout = {}, deps = {}) {
   const parsed = readUrl(url);
   if (!parsed || parsed.hostname !== "www.baidu.com" || !isDesktopWebSearch(url)) return null;
   const session = createSearchSession(document, url, DEFAULT_PREFS);
@@ -25,7 +27,15 @@ export function bootBaiduPage(document, url, layout = {}) {
       layout.parentLeft ?? measureParentLeft(box),
     );
   }
-  return session;
+  const pager = createAutoPager({
+    document,
+    session,
+    url,
+    enabled: DEFAULT_PREFS.autoPage,
+    fetchDocument: deps.fetchDocument ?? fetchHtmlDocument,
+  });
+  if (deps.attachScroll !== false) attachScroll(document, pager);
+  return { session, pager };
 }
 
 /**
@@ -44,6 +54,26 @@ export function alignSingleCenter(box, viewportWidth, parentLeft) {
 
 if (typeof location !== "undefined" && typeof document !== "undefined" && location.href) {
   bootBaiduPage(document, location.href);
+}
+
+/**
+ * @param {Document} document
+ * @param {{ check: () => Promise<unknown> }} pager
+ */
+function attachScroll(document, pager) {
+  const view = document.defaultView;
+  if (!view || typeof view.addEventListener !== "function") return;
+  let queued = false;
+  const onScroll = () => {
+    if (queued) return;
+    queued = true;
+    queueMicrotask(() => {
+      queued = false;
+      void pager.check();
+    });
+  };
+  view.addEventListener("scroll", onScroll, { passive: true });
+  void pager.check();
 }
 
 /**

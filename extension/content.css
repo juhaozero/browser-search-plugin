@@ -1,3 +1,14 @@
+#bsp-status {
+  margin: 12px 0;
+  text-align: center;
+  color: #666;
+  font-size: 14px;
+}
+
+#bsp-status[hidden] {
+  display: none !important;
+}
+
 #content_left:has(#bsp-results[data-mode="single-center"]) {
   overflow: visible;
 }

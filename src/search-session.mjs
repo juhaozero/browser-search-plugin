@@ -64,6 +64,9 @@ export function createSearchSession(document, url, prefs) {
     get appendedPages() {
       return appendedPages;
     },
+    get autoPage() {
+      return state.autoPage;
+    },
     ingest(nextDocument) {
       if (!state.autoPage || appendedPages >= MAX_APPENDED_PAGES) return { added: 0, stopped: true };
       const known = new Set(organicItems(document).map(itemHref));

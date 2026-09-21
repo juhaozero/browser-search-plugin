@@ -6,11 +6,11 @@ import { alignSingleCenter, bootBaiduPage } from "../src/content-baidu.mjs";
 
 test("百度网页搜索默认单列居中并给不同高亮段不同标记", () => {
   const { document } = parseHTML(baiduPage("chrome 扩展"));
-  const session = bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome%20%E6%89%A9%E5%B1%95", {
+  const boot = bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome%20%E6%89%A9%E5%B1%95", {
     viewportWidth: 1200,
     parentLeft: 80,
-  });
-  assert.ok(session);
+  }, { attachScroll: false });
+  assert.ok(boot?.session);
   const box = document.getElementById("bsp-results");
   assert.equal(box.dataset.mode, "single-center");
   assert.equal(box.style.width, "680px");
