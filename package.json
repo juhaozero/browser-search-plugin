@@ -1,0 +1,26 @@
+{
+  "name": "browser-search-plugin",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "node --test",
+    "build": "node scripts/build.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/juhaozero/browser-search-plugin.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/juhaozero/browser-search-plugin/issues"
+  },
+  "homepage": "https://github.com/juhaozero/browser-search-plugin#readme",
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "linkedom": "^0.18.13"
+  },
+  "type": "module"
+}
