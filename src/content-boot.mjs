@@ -1,6 +1,7 @@
 import { createSearchSession, isDesktopWebSearch } from "./search-session.mjs";
 import { createAutoPager, fetchHtmlDocument } from "./auto-page.mjs";
 import { DEFAULT_PREFS, createChromePrefsStore } from "./preferences.mjs";
+import { isExtensionContextValid } from "./content-lifecycle.mjs";
 
 export { DEFAULT_PREFS };
 
@@ -65,14 +66,6 @@ export async function bootSearchPage(document, url, layout = {}, deps = {}) {
   const session = createSearchSession(document, url, prefs);
   realign(document, layout);
   markActive(document, session.engine);
-  const pager = createAutoPager({
-    document,
-    session,
-    url,
-    enabled: prefs.autoPage,
-    fetchDocument: deps.fetchDocument ?? fetchHtmlDocument,
-  });
-  const stopScroll = deps.attachScroll !== false ? attachScroll(document, pager) : () => {};
 
   let watcher = {
     dispose() {},
@@ -80,18 +73,35 @@ export async function bootSearchPage(document, url, layout = {}, deps = {}) {
       return fn();
     },
   };
+
+  const pager = createAutoPager({
+    document,
+    session,
+    url,
+    enabled: prefs.autoPage,
+    fetchDocument: deps.fetchDocument ?? fetchHtmlDocument,
+    mutate: (fn) => watcher.runMuted(fn),
+  });
+  const stopScroll = deps.attachScroll !== false ? attachScroll(document, pager) : () => {};
+
   if (deps.watchDom !== false) {
     watcher = watchResults(document, () => {
+      if (!isExtensionContextValid()) {
+        disposeBoot();
+        return;
+      }
       watcher.runMuted(() => {
         session.refresh();
         realign(document, layout);
         markActive(document, session.engine);
-        void pager.check();
       });
+      // check/ingest 在 mute 外发起请求，真正改 DOM 时走 pager.mutate → runMuted
+      void pager.check();
     });
   }
 
   const applyPrefs = (next) => {
+    if (disposed) return;
     const normalized = normalizeBootPrefs(next);
     watcher.runMuted(() => {
       session.apply(normalized);
@@ -101,14 +111,16 @@ export async function bootSearchPage(document, url, layout = {}, deps = {}) {
     });
   };
 
+  let disposed = false;
+  let resizeTimer = 0;
   let unsubscribe = () => {};
   if (store?.subscribe) unsubscribe = store.subscribe(applyPrefs);
-
-  let resizeTimer = 0;
   const onResize = () => {
+    if (disposed) return;
     if (resizeTimer) (globalThis.clearTimeout ?? clearTimeout)(resizeTimer);
     resizeTimer = (globalThis.setTimeout ?? setTimeout)(() => {
       resizeTimer = 0;
+      if (disposed) return;
       realign(document, {});
     }, 120);
   };
@@ -117,28 +129,49 @@ export async function bootSearchPage(document, url, layout = {}, deps = {}) {
     view.addEventListener("resize", onResize, { passive: true });
   }
 
-  return {
-    session,
-    pager,
-    applyPrefs,
-    dispose() {
-      unsubscribe();
+  /**
+   * teardown 必须尽量跑完：扩展 reload 后 chrome.storage.removeListener 可能抛错，
+   * 不能因此跳过 MutationObserver.disconnect。
+   */
+  function disposeBoot() {
+    if (disposed) return;
+    disposed = true;
+    const silent = (fn) => {
+      try {
+        fn();
+      } catch {
+        // 上下文失效时 chrome.* 常抛错，忽略并继续拆本地资源
+      }
+    };
+    silent(() => unsubscribe());
+    silent(() => {
       watcher.runMuted(() => {
         session.dispose?.();
       });
-      watcher.dispose();
-      stopScroll();
-      pager.dispose?.();
-      clearCenteredLayout(document);
+    });
+    silent(() => watcher.dispose());
+    silent(() => stopScroll());
+    silent(() => pager.dispose?.());
+    silent(() => clearCenteredLayout(document));
+    silent(() => {
       delete document.documentElement.dataset[RELAYOUT_FLAG];
       delete document.documentElement.dataset[DOM_MUTE_FLAG];
       delete document.documentElement.dataset.bspShellWidth;
       delete document.documentElement.dataset.bspActive;
       delete document.documentElement.dataset.bspEngine;
       delete document.documentElement.dataset.bspColumnMode;
+    });
+    silent(() => {
       if (resizeTimer) (globalThis.clearTimeout ?? clearTimeout)(resizeTimer);
-      view?.removeEventListener?.("resize", onResize);
-    },
+    });
+    silent(() => view?.removeEventListener?.("resize", onResize));
+  }
+
+  return {
+    session,
+    pager,
+    applyPrefs,
+    dispose: disposeBoot,
   };
 }
 
@@ -433,17 +466,22 @@ export function attachScroll(document, pager) {
   const view = document.defaultView;
   if (!view || typeof view.addEventListener !== "function") return () => {};
   let queued = false;
+  let stopped = false;
   const onScroll = () => {
-    if (queued) return;
+    if (stopped || queued) return;
     queued = true;
     queueMicrotask(() => {
       queued = false;
+      if (stopped) return;
       void pager.check();
     });
   };
   view.addEventListener("scroll", onScroll, { passive: true });
   void pager.check();
-  return () => view.removeEventListener("scroll", onScroll);
+  return () => {
+    stopped = true;
+    view.removeEventListener("scroll", onScroll);
+  };
 }
 
 /**

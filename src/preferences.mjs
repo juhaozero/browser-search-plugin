@@ -82,7 +82,13 @@ export function createChromePrefsStore(storage) {
         listener(normalizePrefs(changes.prefs.newValue ?? DEFAULT_PREFS));
       };
       storage.onChanged.addListener(onChanged);
-      return () => storage.onChanged.removeListener(onChanged);
+      return () => {
+        try {
+          storage.onChanged.removeListener(onChanged);
+        } catch {
+          // 扩展上下文失效时 removeListener 可能抛错
+        }
+      };
     },
   };
 }

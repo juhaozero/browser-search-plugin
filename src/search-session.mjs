@@ -136,17 +136,59 @@ export function createSearchSession(document, url, prefs) {
   function restoreOriginal() {
     const box = document.getElementById("bsp-results");
     const root = engine.resultsRoot(document);
-    if (!box || !root) return;
-    const appended = [...box.children].filter((item) => !origins.has(item));
-    for (const item of [...box.children]) {
-      const placeholder = origins.get(item);
-      if (!placeholder?.parentNode) continue;
-      placeholder.parentNode.insertBefore(item, placeholder);
-      placeholder.remove();
-      origins.delete(item);
+    if (box) {
+      const kids = [...box.children];
+      for (const item of kids) {
+        const placeholder = origins.get(item);
+        if (placeholder?.parentNode) {
+          placeholder.parentNode.insertBefore(item, placeholder);
+          placeholder.remove();
+          origins.delete(item);
+          continue;
+        }
+        if (root) root.appendChild(item);
+        else item.remove();
+        origins.delete(item);
+      }
+      box.remove();
     }
-    for (const item of appended) root.appendChild(item);
-    box.remove();
+    // 清掉遗留的 bsp-origin 注释，防止 SPA 反复 boot 堆积
+    scrubOriginComments(root ?? document);
+  }
+
+  /**
+   * @param {ParentNode | null} scope
+   */
+  function scrubOriginComments(scope) {
+    if (!scope) return;
+    const doc = scope.nodeType === 9 ? scope : scope.ownerDocument;
+    if (!doc || typeof doc.createTreeWalker !== "function") {
+      scrubOriginCommentsFallback(scope);
+      return;
+    }
+    const walker = doc.createTreeWalker(scope, 128 /* NodeFilter.SHOW_COMMENT */);
+    /** @type {Comment[]} */
+    const doomed = [];
+    let node = walker.nextNode();
+    while (node) {
+      if (String(node.data ?? "").includes("bsp-origin")) doomed.push(/** @type {Comment} */ (node));
+      node = walker.nextNode();
+    }
+    for (const comment of doomed) comment.remove();
+  }
+
+  /**
+   * @param {ParentNode | null} scope
+   */
+  function scrubOriginCommentsFallback(scope) {
+    if (!scope?.childNodes) return;
+    for (const child of [...scope.childNodes]) {
+      if (child.nodeType === 8 && String(child.data ?? "").includes("bsp-origin")) {
+        child.remove();
+        continue;
+      }
+      if (child.nodeType === 1) scrubOriginCommentsFallback(child);
+    }
   }
 
   function ensureBox(root) {
@@ -159,7 +201,7 @@ export function createSearchSession(document, url, prefs) {
   }
 
   function rememberOrigin(item) {
-    if (origins.has(item)) return;
+    if (origins.has(item) || !item.parentNode) return;
     const placeholder = item.ownerDocument.createComment("bsp-origin");
     item.parentNode.insertBefore(placeholder, item);
     origins.set(item, placeholder);

@@ -17,6 +17,7 @@ const FAIL_TIP_MS = 2000;
  *   nearBottomPx?: number,
  *   failTipMs?: number,
  *   schedule?: (fn: () => void, ms: number) => unknown,
+ *   mutate?: <T>(fn: () => T) => T,
  * }} options
  */
 export function createAutoPager(options) {
@@ -25,11 +26,13 @@ export function createAutoPager(options) {
   const nearBottomPx = options.nearBottomPx ?? NEAR_BOTTOM_PX;
   const failTipMs = options.failTipMs ?? FAIL_TIP_MS;
   const schedule = options.schedule ?? ((fn, ms) => setTimeout(fn, ms));
+  const mutate = options.mutate ?? ((fn) => fn());
 
   let enabled = options.enabled ?? true;
   let currentUrl = options.url;
   let busy = false;
   let stopped = false;
+  let disposed = false;
   let needLeaveBottom = false;
   let tip = null;
   let failClearHandle = null;
@@ -49,7 +52,7 @@ export function createAutoPager(options) {
       return currentUrl;
     },
     async check(metrics) {
-      if (!enabled || !session.autoPage || stopped || busy) return { fetched: false };
+      if (disposed || !enabled || !session.autoPage || stopped || busy) return { fetched: false };
       const near = isNearBottom(document, metrics, nearBottomPx);
       if (!near) {
         needLeaveBottom = false;
@@ -59,12 +62,15 @@ export function createAutoPager(options) {
       return loadNext();
     },
     dispose() {
+      disposed = true;
       if (failClearHandle != null && typeof clearTimeout === "function") clearTimeout(failClearHandle);
-      clearTip();
+      failClearHandle = null;
+      removeTip();
     },
   };
 
   async function loadNext() {
+    if (disposed) return { fetched: false };
     if (session.appendedPages >= 10) {
       stopped = true;
       clearTip();
@@ -80,12 +86,12 @@ export function createAutoPager(options) {
     showTip("加载中");
     try {
       const nextDocument = await options.fetchDocument(next);
-      if (!session.autoPage) {
+      if (disposed || !session.autoPage) {
         clearTip();
         return { fetched: false };
       }
-      const result = session.ingest(nextDocument);
-      if (!session.autoPage) {
+      const result = mutate(() => session.ingest(nextDocument));
+      if (disposed || !session.autoPage) {
         clearTip();
         return { fetched: false };
       }
@@ -94,6 +100,7 @@ export function createAutoPager(options) {
       clearTip();
       return { fetched: result.added > 0, ...result };
     } catch {
+      if (disposed) return { fetched: false, failed: true };
       showTip("加载失败");
       needLeaveBottom = true;
       if (failClearHandle != null && typeof clearTimeout === "function") clearTimeout(failClearHandle);
@@ -117,6 +124,14 @@ export function createAutoPager(options) {
     if (!tip) return;
     tip.textContent = "";
     tip.hidden = true;
+  }
+
+  function removeTip() {
+    clearTip();
+    tip?.remove?.();
+    tip = null;
+    const orphan = document.getElementById("bsp-status");
+    orphan?.remove?.();
   }
 
   function ensureTip() {
