@@ -11,13 +11,14 @@ import {
 } from "../src/preferences.mjs";
 import { mountPopup, readForm } from "../src/popup.mjs";
 
-test("默认偏好是单列居中、高亮开、自动翻页开", () => {
+test("默认偏好是单列居中、高亮关、自动翻页开", () => {
   assert.deepEqual(normalizePrefs({}), DEFAULT_PREFS);
   assert.deepEqual(DEFAULT_PREFS, {
     columnMode: "single-center",
-    highlight: true,
+    highlight: false,
     autoPage: true,
   });
+  assert.equal(normalizePrefs({ highlight: true }).highlight, false);
 });
 
 test("同步存储失败时退回本机保存并读回", async () => {
@@ -45,7 +46,7 @@ test("同步存储失败时退回本机保存并读回", async () => {
     },
   };
   const store = createChromePrefsStore(storage);
-  const saved = await store.save({ columnMode: "double", highlight: false, autoPage: true });
+  const saved = await store.save({ columnMode: "double", highlight: true, autoPage: true });
   assert.equal(saved.columnMode, "double");
   assert.deepEqual(await store.load(), {
     columnMode: "double",
@@ -61,7 +62,7 @@ test("弹窗改偏好后已打开结果页马上重排并尊重开关", async ()
     document,
     "https://www.baidu.com/s?wd=chrome",
     { viewportWidth: 1200, parentLeft: 80 },
-    { prefsStore: store, attachScroll: false },
+    { prefsStore: store, attachScroll: false, watchDom: false },
   );
   assert.equal(document.getElementById("bsp-results").dataset.mode, "single-center");
 
@@ -70,37 +71,36 @@ test("弹窗改偏好后已打开结果页马上重排并尊重开关", async ()
   assert.equal(document.querySelector("mark.bsp-hl"), null);
   assert.equal(boot.pager.enabled, false);
 
-  await store.save({ columnMode: "original", highlight: true, autoPage: true });
+  await store.save({ columnMode: "original", highlight: false, autoPage: true });
   assert.equal(document.getElementById("bsp-results"), null);
-  assert.ok(document.querySelector("#content_left .c-container h3 mark.bsp-hl"));
+  assert.equal(document.querySelector("mark.bsp-hl"), null);
   assert.equal(boot.pager.enabled, true);
 });
 
 test("百度和谷歌共用同一套偏好", async () => {
-  const store = createMemoryPrefsStore({ columnMode: "single", highlight: true, autoPage: true });
+  const store = createMemoryPrefsStore({ columnMode: "single", highlight: false, autoPage: true });
   const baidu = parseHTML(baiduPage("chrome")).document;
   const google = parseHTML(googlePage("chrome")).document;
-  await bootSearchPage(baidu, "https://www.baidu.com/s?wd=chrome", {}, { prefsStore: store, attachScroll: false });
-  await bootSearchPage(google, "https://www.google.com/search?q=chrome", {}, { prefsStore: store, attachScroll: false });
-  await store.save({ columnMode: "double", highlight: true, autoPage: true });
+  await bootSearchPage(baidu, "https://www.baidu.com/s?wd=chrome", {}, { prefsStore: store, attachScroll: false, watchDom: false });
+  await bootSearchPage(google, "https://www.google.com/search?q=chrome", {}, { prefsStore: store, attachScroll: false, watchDom: false });
+  await store.save({ columnMode: "double", highlight: false, autoPage: true });
   assert.equal(baidu.getElementById("bsp-results").dataset.mode, "double");
   assert.equal(google.getElementById("bsp-results").dataset.mode, "double");
 });
 
-test("弹窗可四选一列模式并开关高亮与自动翻页，没有页数设置", async () => {
+test("弹窗可四选一列模式并开关自动翻页，没有高亮和页数设置", async () => {
   const store = createMemoryPrefsStore();
   const { document } = parseHTML(popupHtml());
   const popup = await mountPopup(document, { prefsStore: store });
   assert.equal(document.querySelector("input[name='columnMode'][value='single-center']").checked, true);
-  assert.equal(document.querySelector("input[name='highlight']").checked, true);
   assert.equal(document.querySelector("input[name='autoPage']").checked, true);
+  assert.equal(document.querySelector("input[name='highlight']"), null);
   assert.equal(document.body.textContent.includes("页数"), false);
   assert.equal(document.querySelector("input[name='maxPages']"), null);
 
   for (const input of document.querySelectorAll("input[name='columnMode']")) {
     input.checked = input.value === "double";
   }
-  document.querySelector("input[name='highlight']").checked = false;
   document.querySelector("input[name='autoPage']").checked = false;
   await popup.commit();
   assert.deepEqual(await store.load(), {
@@ -128,7 +128,6 @@ function popupHtml() {
       <label><input type="radio" name="columnMode" value="single">单列</label>
       <label><input type="radio" name="columnMode" value="single-center">单列居中</label>
       <label><input type="radio" name="columnMode" value="double">双列</label>
-      <label><input type="checkbox" name="highlight">高亮</label>
       <label><input type="checkbox" name="autoPage">自动翻页</label>
     </form>
   </body></html>`;

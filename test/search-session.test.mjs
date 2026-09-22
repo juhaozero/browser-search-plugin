@@ -6,6 +6,7 @@ import {
   highlightSegments,
   isDesktopWebSearch,
   nextPageUrl,
+  siteSearchHref,
 } from "../src/search-session.mjs";
 
 test("只认桌面版网页搜索", () => {
@@ -40,6 +41,44 @@ test("下一页地址从当前页往后推一页", () => {
   assert.equal(nextPageUrl("https://www.baidu.com/s?wd=chrome&tn=news"), null);
   assert.equal(nextPageUrl("https://www.google.com/search?q=chrome&tbm=isch"), null);
   assert.equal(nextPageUrl("https://www.google.com/search?q=chrome&udm=2"), null);
+});
+
+test("结果条目可补站内其它相关信息链接，已有原生站内链接则不重复", () => {
+  assert.equal(
+    siteSearchHref("google", "https://www.google.com/search?q=cloudflare", "cloudflare.com"),
+    "https://www.google.com/search?q=cloudflare%20site%3Acloudflare.com",
+  );
+  assert.equal(
+    siteSearchHref("baidu", "https://www.baidu.com/s?wd=cloudflare", "cloudflare.com"),
+    "https://www.baidu.com/s?wd=cloudflare%20site%3Acloudflare.com",
+  );
+
+  const { document } = parseHTML(baiduPage("cloudflare"));
+  createSearchSession(document, "https://www.baidu.com/s?wd=cloudflare", {
+    columnMode: "single-center",
+    highlight: false,
+    autoPage: false,
+  });
+  const link = document.querySelector("a.bsp-site-search");
+  assert.ok(link);
+  assert.match(link.textContent, /example\.com站内的其它相关信息/);
+  assert.match(link.getAttribute("href") ?? "", /site%3Aexample\.com/);
+
+  const { document: again } = parseHTML(`<!doctype html><html><body>
+    <div id="content_left">
+      <div class="c-container">
+        <h3><a href="https://cloudflare.com/">Cloudflare</a></h3>
+        <div class="c-abstract">摘要</div>
+        <a href="https://www.baidu.com/s?wd=x%20site%3Acloudflare.com">cloudflare.com站内的其它相关信息 »</a>
+      </div>
+    </div>
+  </body></html>`);
+  createSearchSession(again, "https://www.baidu.com/s?wd=cloudflare", {
+    columnMode: "original",
+    highlight: false,
+    autoPage: false,
+  });
+  assert.equal(again.querySelectorAll(".bsp-site-search-wrap").length, 0);
 });
 
 test("高亮只出现在结果条目的标题和摘要上", () => {

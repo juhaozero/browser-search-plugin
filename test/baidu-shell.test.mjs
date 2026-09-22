@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseHTML } from "linkedom";
 import { alignSingleCenter, bootBaiduPage } from "../src/content-baidu.mjs";
+import { contentWidth, layoutMetrics } from "../src/content-boot.mjs";
 
 test("百度网页搜索默认单列居中并给不同高亮段不同标记", async () => {
   const { document } = parseHTML(baiduPage("chrome 扩展"));
@@ -13,15 +14,15 @@ test("百度网页搜索默认单列居中并给不同高亮段不同标记", as
   assert.ok(boot?.session);
   const box = document.getElementById("bsp-results");
   assert.equal(box.dataset.mode, "single-center");
-  assert.equal(box.style.width, "680px");
-  assert.equal(box.style.marginLeft, "180px");
-  const marks = [...document.querySelectorAll("h3 mark.bsp-hl")];
-  assert.equal(marks[0].dataset.bspSeg, "0");
-  assert.equal(marks[1].dataset.bspSeg, "1");
-  assert.notEqual(marks[0].style.backgroundColor, marks[1].style.backgroundColor);
+  assert.equal(box.style.width, "100%");
+  const expected = contentWidth("single-center", 1200);
+  const left = Math.max(24, Math.round((1200 - expected) / 2));
+  assert.equal(document.getElementById("content_left").style.width, `${expected}px`);
+  assert.equal(document.getElementById("content_left").style.marginLeft, `${left}px`);
+  assert.equal(document.getElementById("head").style.width, `${expected}px`);
+  assert.equal(document.querySelector("h3 mark.bsp-hl"), null);
   assert.equal(document.querySelector("#kw mark"), null);
   assert.equal(document.querySelector("#rs mark"), null);
-  assert.equal(document.querySelector(".ec-tuiguang").closest(".c-container").querySelector("mark"), null);
   assert.equal(document.getElementById("page").textContent, "下一页");
   assert.equal(box.contains(document.getElementById("rs")), false);
   assert.deepEqual([...document.querySelectorAll("[id^='bsp-']")].map((element) => element.id), ["bsp-results"]);
@@ -40,14 +41,80 @@ test("首页、手机版和资讯页不改页面", async () => {
   }
 });
 
-test("单列居中按视口把结果列放到页面中间", () => {
-  const { document } = parseHTML(`<div id="bsp-results" data-mode="single-center"></div>`);
+test("单列居中按视口把结果列和搜索框放到页面中间", () => {
+  const { document } = parseHTML(`
+    <form id="form"></form>
+    <div id="content_left"><div id="bsp-results" data-mode="single-center"></div></div>
+  `);
   const box = document.getElementById("bsp-results");
-  alignSingleCenter(box, 1000, 100);
-  assert.equal(box.style.width, "680px");
-  assert.equal(box.style.marginLeft, "60px");
-  alignSingleCenter(box, 400, 0);
-  assert.equal(box.style.width, "368px");
+  alignSingleCenter(box, 1000);
+  const expected = contentWidth("single-center", 1000);
+  const left = Math.max(24, Math.round((1000 - expected) / 2));
+  assert.equal(document.getElementById("content_left").style.width, `${expected}px`);
+  assert.equal(document.getElementById("content_left").style.marginLeft, `${left}px`);
+  assert.equal(box.style.width, "100%");
+  alignSingleCenter(box, 400);
+  assert.equal(document.getElementById("content_left").style.width, `${contentWidth("single-center", 400)}px`);
+});
+
+test("谷歌搜索框与结果列共用同一居中宽度", () => {
+  const { document } = parseHTML(`
+    <div id="searchform"><form id="tsf" role="search"></form></div>
+    <div id="appbar"></div>
+    <div id="center_col"><div id="bsp-results" data-mode="single-center"></div></div>
+  `);
+  const box = document.getElementById("bsp-results");
+  alignSingleCenter(box, 1200);
+  const expected = contentWidth("single-center", 1200);
+  const left = Math.max(24, Math.round((1200 - expected) / 2));
+  assert.equal(document.getElementById("searchform").style.width, `${expected}px`);
+  assert.equal(document.getElementById("searchform").style.marginLeft, `${left}px`);
+  assert.equal(document.getElementById("appbar").style.width, `${expected}px`);
+  assert.equal(document.getElementById("center_col").style.width, `${expected}px`);
+  assert.equal(document.getElementById("tsf").style.width, "");
+});
+
+test("有右侧知识卡时给结果列预留空间避免重叠", () => {
+  const { document } = parseHTML(`
+    <div id="searchform"></div>
+    <div id="rcnt">
+      <div id="center_col"><div id="bsp-results" data-mode="single-center"></div></div>
+      <div id="rhs" style="width: 368px"><div>panel</div></div>
+    </div>
+  `);
+  alignSingleCenter(document.getElementById("bsp-results"), 1400);
+  const metrics = layoutMetrics(document, "single-center", 1400);
+  assert.equal(document.getElementById("center_col").style.maxWidth, `${metrics.mainWidth}px`);
+  assert.equal(document.getElementById("rhs").style.width, "368px");
+  assert.equal(document.getElementById("rcnt").style.display, "flex");
+  assert.equal(document.getElementById("rcnt").style.width, `${metrics.shellWidth}px`);
+  assert.equal(document.getElementById("searchform").style.width, `${metrics.shellWidth}px`);
+});
+
+test("双列两卡等宽并整体按视口居中", () => {
+  const { document } = parseHTML(`
+    <div id="searchform"></div>
+    <div id="appbar"></div>
+    <div id="center_col"><div id="bsp-results" data-mode="double"></div></div>
+  `);
+  const box = document.getElementById("bsp-results");
+  alignSingleCenter(box, 1200);
+  const expected = contentWidth("double", 1200);
+  const left = Math.max(24, Math.round((1200 - expected) / 2));
+  assert.equal(document.getElementById("searchform").style.width, `${expected}px`);
+  assert.equal(document.getElementById("searchform").style.marginLeft, `${left}px`);
+  assert.equal(document.getElementById("appbar").style.width, `${expected}px`);
+  assert.equal(document.getElementById("center_col").style.width, `${expected}px`);
+  assert.equal(document.getElementById("center_col").style.marginLeft, `${left}px`);
+  assert.equal(box.style.gridTemplateColumns, "minmax(0, 1fr) minmax(0, 1fr)");
+});
+
+test("列模式结果条目使用卡片样式并放开内部宽度", () => {
+  const css = readFileSync(new URL("../extension/content.css", import.meta.url), "utf8");
+  assert.match(css, /#bsp-results\[data-mode="single-center"\] > \*:has\(h3\)[\s\S]*border-radius:\s*12px/);
+  assert.match(css, /#bsp-results\[data-mode="double"\][\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(css, /yuRUbf[\s\S]*max-width:\s*100%\s*!important/);
+  assert.match(css, /padding:\s*16px\s+18px/);
 });
 
 test("清单只注入搜索结果页且不申请落地页权限", () => {
@@ -64,7 +131,12 @@ test("清单只注入搜索结果页且不申请落地页权限", () => {
 
 test("只差大小写的高亮段仍用各自的底色", async () => {
   const { document } = parseHTML(baiduPage("Chrome chrome"));
-  await bootBaiduPage(document, "https://www.baidu.com/s?wd=Chrome%20chrome", {}, { attachScroll: false });
+  const { createSearchSession } = await import("../src/search-session.mjs");
+  createSearchSession(document, "https://www.baidu.com/s?wd=Chrome%20chrome", {
+    columnMode: "original",
+    highlight: true,
+    autoPage: false,
+  });
   const marks = [...document.querySelectorAll("h3 mark.bsp-hl")];
   assert.equal(marks[0].dataset.bspSeg, "0");
   assert.equal(marks[1].dataset.bspSeg, "1");
@@ -83,7 +155,9 @@ test("高亮样式给不同段不同底色", () => {
 
 function baiduPage(query) {
   return `<!doctype html><html><body>
-    <input id="kw" value="${query}">
+    <div id="head">
+      <form id="form"><input id="kw" value="${query}"></form>
+    </div>
     <div id="content_left">
       <div class="c-container">
         <h3><a href="https://example.com/a">${query} 下载</a></h3>

@@ -94,6 +94,16 @@ export function createSearchSession(document, url, prefs) {
       layout();
       paint();
     },
+    /** 引擎 DOM 有新结果时重新收纳并绘制，不改偏好 */
+    refresh() {
+      layout();
+      paint();
+    },
+    /** 还原原生结果 DOM，避免 SPA 反复 boot 时 #bsp-results 与 origin 注释堆积 */
+    dispose() {
+      restoreOriginal();
+      appendedPages = 0;
+    },
   };
 
   function layout() {

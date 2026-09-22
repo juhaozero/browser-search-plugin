@@ -16,8 +16,7 @@ test("谷歌网页搜索默认单列居中并高亮标题和摘要", async () =>
   assert.equal(boot.session.engine, "google");
   const box = document.getElementById("bsp-results");
   assert.equal(box.dataset.mode, "single-center");
-  assert.ok(box.querySelector("h3 mark.bsp-hl"));
-  assert.ok(box.querySelector(".VwiC3b mark.bsp-hl"));
+  assert.equal(document.querySelector("h3 mark.bsp-hl"), null);
   assert.equal(document.querySelector("textarea[name='q'] mark"), null);
   assert.equal(document.querySelector("#tads mark"), null);
   assert.equal(document.getElementById("pnnext").textContent, "下一页");
@@ -46,6 +45,69 @@ test("谷歌首页、图片和带国家域名的判定", async () => {
   );
   assert.ok(hk?.session);
   assert.equal(hk.session.engine, "google");
+});
+
+test("谷歌无 .g 的 MjjYud / tF2Cxc 结果也能单列居中并高亮", async () => {
+  const { document } = parseHTML(`<!doctype html><html><body>
+    <div id="rso">
+      <div class="MjjYud"><div class="tF2Cxc">
+        <a href="https://example.com/modern"><h3>chrome 扩展</h3></a>
+        <div class="VwiC3b">现代结构 chrome 扩展</div>
+      </div></div>
+    </div>
+    <a id="pnnext" href="/search?q=chrome&amp;start=10">下一页</a>
+  </body></html>`);
+  const boot = await bootSearchPage(document, "https://www.google.com/search?q=chrome%20%E6%89%A9%E5%B1%95", {
+    viewportWidth: 1200,
+    parentLeft: 80,
+  }, { attachScroll: false, watchDom: false });
+  assert.ok(boot?.session);
+  const box = document.getElementById("bsp-results");
+  assert.equal(box.dataset.mode, "single-center");
+  assert.equal(box.children.length, 1);
+  assert.equal(box.querySelector("h3 mark.bsp-hl"), null);
+  assert.equal(document.documentElement.dataset.bspActive, "1");
+});
+
+test("结果晚到时 refresh 会补上列模式", () => {
+  const { document } = parseHTML(`<!doctype html><html><body><div id="rso"></div></body></html>`);
+  const session = createSearchSession(document, "https://www.google.com/search?q=chrome", {
+    columnMode: "double",
+    highlight: false,
+    autoPage: true,
+  });
+  assert.equal(document.getElementById("bsp-results")?.children.length ?? 0, 0);
+  document.getElementById("rso").innerHTML = `<div class="tF2Cxc">
+    <a href="https://example.com/late"><h3>chrome</h3></a>
+    <div class="VwiC3b">晚到的 chrome</div>
+  </div>`;
+  session.refresh();
+  assert.equal(document.getElementById("bsp-results").children.length, 1);
+  assert.equal(document.querySelector("#bsp-results h3 mark.bsp-hl"), null);
+});
+
+test("谷歌双列不把空壳 MjjYud 当成结果卡片", () => {
+  const { document } = parseHTML(`<!doctype html><html><body>
+    <div id="rso">
+      <div class="MjjYud"></div>
+      <div class="tF2Cxc">
+        <a href="https://example.com/a"><h3>Workers AI</h3></a>
+        <div class="VwiC3b">摘要一</div>
+      </div>
+      <div class="tF2Cxc">
+        <a href="https://example.com/b"><h3>教程</h3></a>
+        <div class="VwiC3b">摘要二</div>
+      </div>
+    </div>
+  </body></html>`);
+  createSearchSession(document, "https://www.google.com/search?q=workers", {
+    columnMode: "double",
+    highlight: false,
+    autoPage: false,
+  });
+  const box = document.getElementById("bsp-results");
+  assert.equal(box.children.length, 2);
+  assert.equal(box.querySelectorAll("h3").length, 2);
 });
 
 test("谷歌广告和知识卡不被搬走或高亮", () => {
@@ -98,7 +160,7 @@ test("谷歌自动翻页接上结果并保留页码", async () => {
   const result = await pager.check({ scrollY: 0, viewportHeight: 800, listBottom: 900 });
   assert.equal(result.fetched, true);
   assert.ok(document.querySelector("#bsp-results a[href='https://example.com/p1']"));
-  assert.ok(document.querySelector("#bsp-results h3 mark.bsp-hl"));
+  assert.equal(document.querySelector("#bsp-results h3 mark.bsp-hl"), null);
   assert.equal(document.getElementById("pnnext").textContent, "下一页");
 });
 

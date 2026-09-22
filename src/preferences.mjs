@@ -1,10 +1,12 @@
 export const DEFAULT_PREFS = {
   columnMode: "single-center",
-  highlight: true,
+  highlight: false,
   autoPage: true,
 };
 
 const COLUMN_MODES = new Set(["original", "single", "single-center", "double"]);
+/** 临时屏蔽高亮：读写偏好时都强制关闭 */
+const HIGHLIGHT_DISABLED = true;
 
 /**
  * @param {unknown} raw
@@ -14,7 +16,9 @@ export function normalizePrefs(raw) {
   const columnMode = COLUMN_MODES.has(source.columnMode) ? source.columnMode : DEFAULT_PREFS.columnMode;
   return {
     columnMode,
-    highlight: typeof source.highlight === "boolean" ? source.highlight : DEFAULT_PREFS.highlight,
+    highlight: HIGHLIGHT_DISABLED
+      ? false
+      : (typeof source.highlight === "boolean" ? source.highlight : DEFAULT_PREFS.highlight),
     autoPage: typeof source.autoPage === "boolean" ? source.autoPage : DEFAULT_PREFS.autoPage,
   };
 }
