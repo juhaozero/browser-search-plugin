@@ -13,7 +13,7 @@ const FAIL_TIP_MS = 2000;
  *   },
  *   url: string,
  *   enabled?: boolean,
- *   fetchDocument: (url: string) => Promise<Document>,
+ *   fetchDocument: (url: string, signal?: AbortSignal) => Promise<Document>,
  *   nearBottomPx?: number,
  *   failTipMs?: number,
  *   schedule?: (fn: () => void, ms: number) => unknown,
@@ -36,6 +36,8 @@ export function createAutoPager(options) {
   let needLeaveBottom = false;
   let tip = null;
   let failClearHandle = null;
+  /** @type {AbortController | null} */
+  let inflight = null;
 
   return {
     get enabled() {
@@ -63,6 +65,12 @@ export function createAutoPager(options) {
     },
     dispose() {
       disposed = true;
+      try {
+        inflight?.abort?.();
+      } catch {
+        // ignore
+      }
+      inflight = null;
       if (failClearHandle != null && typeof clearTimeout === "function") clearTimeout(failClearHandle);
       failClearHandle = null;
       removeTip();
@@ -84,8 +92,10 @@ export function createAutoPager(options) {
     }
     busy = true;
     showTip("加载中");
+    const ac = typeof AbortController === "function" ? new AbortController() : null;
+    inflight = ac;
     try {
-      const nextDocument = await options.fetchDocument(next);
+      const nextDocument = await options.fetchDocument(next, ac?.signal);
       if (disposed || !session.autoPage) {
         clearTip();
         return { fetched: false };
@@ -99,8 +109,8 @@ export function createAutoPager(options) {
       if (result.stopped || session.appendedPages >= 10) stopped = true;
       clearTip();
       return { fetched: result.added > 0, ...result };
-    } catch {
-      if (disposed) return { fetched: false, failed: true };
+    } catch (error) {
+      if (disposed || isAbortError(error)) return { fetched: false, failed: false };
       showTip("加载失败");
       needLeaveBottom = true;
       if (failClearHandle != null && typeof clearTimeout === "function") clearTimeout(failClearHandle);
@@ -110,6 +120,7 @@ export function createAutoPager(options) {
       }, failTipMs);
       return { fetched: false, failed: true };
     } finally {
+      if (inflight === ac) inflight = null;
       busy = false;
     }
   }
@@ -154,6 +165,13 @@ export function createAutoPager(options) {
 }
 
 /**
+ * @param {unknown} error
+ */
+function isAbortError(error) {
+  return Boolean(error && typeof error === "object" && "name" in error && error.name === "AbortError");
+}
+
+/**
  * @param {Document} document
  * @param {{ scrollY?: number, viewportHeight?: number, listBottom?: number } | undefined} metrics
  * @param {number} nearBottomPx
@@ -175,10 +193,11 @@ export function isNearBottom(document, metrics, nearBottomPx = NEAR_BOTTOM_PX) {
 
 /**
  * @param {string} url
+ * @param {AbortSignal} [signal]
  * @returns {Promise<Document>}
  */
-export async function fetchHtmlDocument(url) {
-  const response = await fetch(url, { credentials: "include" });
+export async function fetchHtmlDocument(url, signal) {
+  const response = await fetch(url, { credentials: "include", signal });
   if (!response.ok) throw new Error(`取下一页失败: ${response.status}`);
   const html = await response.text();
   return new DOMParser().parseFromString(html, "text/html");

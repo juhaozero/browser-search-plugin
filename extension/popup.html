@@ -2,20 +2,132 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8">
-    <title>搜索结果阅读</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SearchLayout</title>
     <link rel="stylesheet" href="popup.css">
   </head>
   <body>
-    <form id="bsp-prefs">
-      <fieldset>
-        <legend>列模式</legend>
-        <label><input type="radio" name="columnMode" value="original"> 原始模式</label>
-        <label><input type="radio" name="columnMode" value="single"> 单列</label>
-        <label><input type="radio" name="columnMode" value="single-center"> 单列居中</label>
-        <label><input type="radio" name="columnMode" value="double"> 双列</label>
-      </fieldset>
-      <label class="toggle"><input type="checkbox" name="autoPage"> 自动翻页</label>
-    </form>
+    <div class="bsp-shell">
+      <header class="bsp-hero">
+        <div class="bsp-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="28" height="28" fill="none">
+            <rect x="4" y="6" width="10" height="20" rx="2.5" fill="currentColor" opacity=".16"/>
+            <rect x="18" y="6" width="10" height="20" rx="2.5" fill="currentColor" opacity=".16"/>
+            <rect x="6" y="9" width="6" height="3" rx="1" fill="currentColor"/>
+            <rect x="20" y="9" width="6" height="3" rx="1" fill="currentColor"/>
+            <rect x="6" y="14.5" width="6" height="2" rx="1" fill="currentColor" opacity=".5"/>
+            <rect x="20" y="14.5" width="6" height="2" rx="1" fill="currentColor" opacity=".5"/>
+            <rect x="6" y="19" width="4.5" height="2" rx="1" fill="currentColor" opacity=".32"/>
+            <rect x="20" y="19" width="4.5" height="2" rx="1" fill="currentColor" opacity=".32"/>
+          </svg>
+        </div>
+        <div class="bsp-hero-copy">
+          <h1>SearchLayout</h1>
+          <p>把搜索结果排成更易读的版式</p>
+        </div>
+      </header>
+
+      <form id="bsp-prefs" class="bsp-form">
+        <section class="bsp-section" aria-labelledby="bsp-layout-title">
+          <div class="bsp-section-head">
+            <h2 id="bsp-layout-title">布局</h2>
+            <span class="bsp-section-hint">立即生效</span>
+          </div>
+
+          <div class="bsp-mode-grid" role="radiogroup" aria-labelledby="bsp-layout-title">
+            <label class="bsp-mode">
+              <input type="radio" name="columnMode" value="original">
+              <span class="bsp-mode-card">
+                <span class="bsp-mode-icon" aria-hidden="true">
+                  <svg viewBox="0 0 40 28" width="40" height="28" fill="none">
+                    <rect x="2" y="3" width="36" height="5" rx="2" fill="currentColor" opacity=".35"/>
+                    <rect x="2" y="11.5" width="28" height="4" rx="2" fill="currentColor" opacity=".22"/>
+                    <rect x="2" y="19.5" width="32" height="4" rx="2" fill="currentColor" opacity=".22"/>
+                  </svg>
+                </span>
+                <span class="bsp-mode-text">
+                  <span class="bsp-mode-title">原始</span>
+                  <span class="bsp-mode-desc">不改引擎排版</span>
+                </span>
+              </span>
+            </label>
+
+            <label class="bsp-mode">
+              <input type="radio" name="columnMode" value="single">
+              <span class="bsp-mode-card">
+                <span class="bsp-mode-icon" aria-hidden="true">
+                  <svg viewBox="0 0 40 28" width="40" height="28" fill="none">
+                    <rect x="8" y="2" width="24" height="24" rx="4" fill="currentColor" opacity=".12"/>
+                    <rect x="12" y="7" width="16" height="3" rx="1.5" fill="currentColor"/>
+                    <rect x="12" y="13" width="16" height="2.5" rx="1.25" fill="currentColor" opacity=".45"/>
+                    <rect x="12" y="18.5" width="12" height="2.5" rx="1.25" fill="currentColor" opacity=".3"/>
+                  </svg>
+                </span>
+                <span class="bsp-mode-text">
+                  <span class="bsp-mode-title">单列</span>
+                  <span class="bsp-mode-desc">卡片纵向堆叠</span>
+                </span>
+              </span>
+            </label>
+
+            <label class="bsp-mode">
+              <input type="radio" name="columnMode" value="single-center">
+              <span class="bsp-mode-card">
+                <span class="bsp-mode-icon" aria-hidden="true">
+                  <svg viewBox="0 0 40 28" width="40" height="28" fill="none">
+                    <rect x="11" y="2" width="18" height="24" rx="4" fill="currentColor" opacity=".12"/>
+                    <rect x="14.5" y="7" width="11" height="3" rx="1.5" fill="currentColor"/>
+                    <rect x="14.5" y="13" width="11" height="2.5" rx="1.25" fill="currentColor" opacity=".45"/>
+                    <rect x="14.5" y="18.5" width="8" height="2.5" rx="1.25" fill="currentColor" opacity=".3"/>
+                  </svg>
+                </span>
+                <span class="bsp-mode-text">
+                  <span class="bsp-mode-title">单列居中</span>
+                  <span class="bsp-mode-desc">阅读宽度更舒适</span>
+                </span>
+              </span>
+            </label>
+
+            <label class="bsp-mode">
+              <input type="radio" name="columnMode" value="double">
+              <span class="bsp-mode-card">
+                <span class="bsp-mode-icon" aria-hidden="true">
+                  <svg viewBox="0 0 40 28" width="40" height="28" fill="none">
+                    <rect x="2" y="2" width="16" height="24" rx="3.5" fill="currentColor" opacity=".12"/>
+                    <rect x="22" y="2" width="16" height="24" rx="3.5" fill="currentColor" opacity=".12"/>
+                    <rect x="5" y="7" width="10" height="2.5" rx="1.25" fill="currentColor"/>
+                    <rect x="25" y="7" width="10" height="2.5" rx="1.25" fill="currentColor"/>
+                    <rect x="5" y="13" width="10" height="2" rx="1" fill="currentColor" opacity=".4"/>
+                    <rect x="25" y="13" width="10" height="2" rx="1" fill="currentColor" opacity=".4"/>
+                  </svg>
+                </span>
+                <span class="bsp-mode-text">
+                  <span class="bsp-mode-title">双列</span>
+                  <span class="bsp-mode-desc">宽屏并排浏览</span>
+                </span>
+              </span>
+            </label>
+          </div>
+        </section>
+
+        <section class="bsp-section" aria-labelledby="bsp-reading-title">
+          <div class="bsp-section-head">
+            <h2 id="bsp-reading-title">阅读</h2>
+          </div>
+
+          <label class="bsp-switch">
+            <input type="checkbox" name="autoPage">
+            <span class="bsp-switch-copy">
+              <span class="bsp-switch-title">自动翻页</span>
+              <span class="bsp-switch-desc">滚到底部时加载下一页结果</span>
+            </span>
+            <span class="bsp-switch-track" aria-hidden="true">
+              <span class="bsp-switch-thumb"></span>
+            </span>
+          </label>
+        </section>
+      </form>
+    </div>
     <script src="popup.js"></script>
   </body>
 </html>

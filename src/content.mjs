@@ -1,5 +1,9 @@
 import { bootSearchPage, isDesktopWebSearch } from "./content-entry.mjs";
-import { createContentLifecycle, isExtensionContextValid } from "./content-lifecycle.mjs";
+import {
+  createContentLifecycle,
+  isExtensionContextValid,
+  searchPageKey,
+} from "./content-lifecycle.mjs";
 
 const GLOBAL_KEY = "__bspContentController";
 
@@ -58,6 +62,25 @@ function disposeController() {
   } catch {
     // ignore
   }
+  try {
+    unwrapHistory(view);
+  } catch {
+    // ignore
+  }
+  if (globalThis[GLOBAL_KEY]?.disposeAll === disposeController) {
+    delete globalThis[GLOBAL_KEY];
+  }
+}
+
+/**
+ * @param {Window | null | undefined} view
+ */
+function unwrapHistory(view) {
+  if (!view?.history) return;
+  for (const method of ["pushState", "replaceState"]) {
+    const fn = view.history[method];
+    if (fn && fn.__bspOriginal) view.history[method] = fn.__bspOriginal;
+  }
 }
 
 globalThis[GLOBAL_KEY] = {
@@ -75,11 +98,13 @@ if (typeof location !== "undefined" && typeof document !== "undefined" && locati
     const wrap = (method) => {
       let original = view.history[method];
       if (typeof original !== "function") return;
-      // 解到原生实现，避免重入时层层包装
       if (original.__bspOriginal) original = original.__bspOriginal;
       function patched(...args) {
+        const beforeKey = searchPageKey(location.href);
         const result = original.apply(this, args);
-        queueMicrotask(() => {
+        voidMicrotask(() => {
+          // 仅当查询身份变化时 reboot；追踪参数变化忽略
+          if (searchPageKey(location.href) === beforeKey) return;
           globalThis[GLOBAL_KEY]?.onNavigate?.();
         });
         return result;

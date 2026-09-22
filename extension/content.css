@@ -1,6 +1,18 @@
+html[data-bsp-active] {
+  /* —— 调卡片/列宽：改这些变量即可（壳宽还需同步 src/content-boot.mjs 常量）—— */
+  --bsp-single-max: 800px;
+  --bsp-double-max: 1120px;
+  --bsp-card-gap: 22px;
+  --bsp-card-column-gap: 24px;
+  --bsp-card-pad-y: 18px;
+  --bsp-card-pad-x: 22px;
+  --bsp-card-radius: 14px;
+  --bsp-side-gap: 64px;
+}
+
 html[data-bsp-active],
 html[data-bsp-active] body {
-  overflow-x: clip !important;
+  overflow-x: auto !important;
   max-width: 100vw;
 }
 
@@ -11,7 +23,9 @@ html[data-bsp-active] #content_left,
 html[data-bsp-active] #rcnt,
 html[data-bsp-active] #search,
 html[data-bsp-active] #searchform,
-html[data-bsp-active] #appbar {
+html[data-bsp-active] #appbar,
+html[data-bsp-active] #head,
+html[data-bsp-active] #s_tab {
   box-sizing: border-box !important;
   min-width: 0 !important;
 }
@@ -22,34 +36,70 @@ html[data-bsp-active] #slim_appbar[data-bsp-centered],
 html[data-bsp-active] #sfcnt[data-bsp-centered],
 html[data-bsp-active] #sf[data-bsp-centered],
 html[data-bsp-active] #head[data-bsp-centered],
+html[data-bsp-active] #s_tab[data-bsp-centered],
+html[data-bsp-active] #s_tab_inner[data-bsp-centered],
 html[data-bsp-active] #hdtb[data-bsp-centered],
+html[data-bsp-active] #hdtbSum[data-bsp-centered],
+html[data-bsp-active] #hdtb-msb[data-bsp-centered],
 html[data-bsp-active] #center_col[data-bsp-centered],
 html[data-bsp-active] #content_left[data-bsp-centered],
 html[data-bsp-active] #rcnt[data-bsp-centered] {
   float: none !important;
+  overflow: visible !important;
+  /* 水平位置由 JS 按视口写入，避免与 margin:auto 在 flex 下失效冲突 */
+}
+
+/* 百度/谷歌导航：打断默认左缩进；水平位置由 JS placeNavAt 写入 */
+html[data-bsp-active] #s_tab[data-bsp-centered],
+html[data-bsp-active] #s_tab_inner[data-bsp-centered],
+html[data-bsp-active] #hdtb[data-bsp-centered],
+html[data-bsp-active] #hdtbSum[data-bsp-centered],
+html[data-bsp-active] #hdtb-msb[data-bsp-centered] {
+  padding-left: 0 !important;
+  margin-left: 0 !important;
+  box-sizing: border-box !important;
+  float: none !important;
+  overflow: visible !important;
+  position: relative !important;
+}
+
+html[data-bsp-active] #head[data-bsp-centered] form,
+html[data-bsp-active] #head[data-bsp-centered] .s_form,
+html[data-bsp-active] #head[data-bsp-centered] .s_ipt_wr,
+html[data-bsp-active] #searchform[data-bsp-centered] form,
+html[data-bsp-active] #sfcnt[data-bsp-centered] form {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 #bsp-results[data-mode="single"],
 #bsp-results[data-mode="single-center"] {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--bsp-card-gap);
   box-sizing: border-box;
   width: 100%;
-  max-width: 100%;
+  max-width: var(--bsp-single-max);
   min-width: 0;
+}
+
+#bsp-results[data-mode="single-center"] {
+  margin-left: auto;
+  margin-right: auto;
 }
 
 #bsp-results[data-mode="double"] {
   display: grid !important;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
-  column-gap: 20px !important;
-  row-gap: 14px !important;
+  column-gap: var(--bsp-card-column-gap) !important;
+  row-gap: var(--bsp-card-gap) !important;
   box-sizing: border-box;
   width: 100%;
-  max-width: 100%;
+  max-width: var(--bsp-double-max);
   min-width: 0;
   overflow: visible;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 #bsp-results[data-mode="single"] > *:has(h3),
@@ -60,8 +110,8 @@ html[data-bsp-active] #rcnt[data-bsp-centered] {
   max-width: 100% !important;
   min-width: 0 !important;
   margin: 0 !important;
-  padding: 16px 18px !important;
-  border-radius: 12px !important;
+  padding: var(--bsp-card-pad-y) var(--bsp-card-pad-x) !important;
+  border-radius: var(--bsp-card-radius) !important;
   border: 1px solid rgba(128, 128, 128, 0.28) !important;
   background-color: rgba(128, 128, 128, 0.1) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
@@ -105,7 +155,7 @@ html[data-bsp-active] #rcnt[data-bsp-centered] {
 }
 
 #bsp-status {
-  margin: 12px 0;
+  margin: 16px 0;
   text-align: center;
   color: #666;
   font-size: 14px;

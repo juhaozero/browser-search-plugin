@@ -152,8 +152,14 @@ export function createSearchSession(document, url, prefs) {
       }
       box.remove();
     }
-    // 清掉遗留的 bsp-origin 注释，防止 SPA 反复 boot 堆积
-    scrubOriginComments(root ?? document);
+    // 清掉遗留的 bsp-origin 注释，防止 SPA 反复 boot 堆积（只扫结果容器，不扫整页）
+    if (root) scrubOriginComments(root);
+    else {
+      for (const id of ["content_left", "rso", "search", "center_col"]) {
+        const el = document.getElementById(id);
+        if (el) scrubOriginComments(el);
+      }
+    }
   }
 
   /**
@@ -215,8 +221,9 @@ export function createSearchSession(document, url, prefs) {
         paintNode(title);
         paintNode(abstract);
       } else {
-        clearNode(title);
-        clearNode(abstract);
+        // 仅在仍有高亮标记时清理，避免每次 refresh 无意义改写 textContent
+        if (title?.querySelector?.("mark.bsp-hl")) clearNode(title);
+        if (abstract?.querySelector?.("mark.bsp-hl")) clearNode(abstract);
       }
     }
   }
@@ -272,9 +279,13 @@ const googleEngine = {
     return document.getElementById("rso") ?? document.getElementById("search");
   },
   organicItems(root) {
-    return [...root.querySelectorAll("#bsp-results > .g, #rso .g")].filter((element) => {
+    // 现代谷歌常无 .g，结果块是 .tF2Cxc；旧版仍可能是 .g
+    return [...root.querySelectorAll(
+      "#bsp-results > .g, #bsp-results > .tF2Cxc, #rso .g, #rso .tF2Cxc",
+    )].filter((element) => {
       if (!isGoogleOrganic(element)) return false;
-      if (element.parentElement?.closest(".g")) return false;
+      // 避免嵌套重复（如 .g 内再套 .g / .tF2Cxc）
+      if (element.parentElement?.closest(".g, .tF2Cxc")) return false;
       return true;
     });
   },
@@ -306,10 +317,12 @@ function isBaiduOrganic(element) {
  * @param {Element} element
  */
 function isGoogleOrganic(element) {
-  if (!element.classList.contains("g")) return false;
+  const isLegacy = element.classList.contains("g");
+  const isModern = element.classList.contains("tF2Cxc");
+  if (!isLegacy && !isModern) return false;
   if (element.closest("#tads, #bottomads, #tadsb, #rhs, .uEierd, [data-text-ad], .kp-wholepage")) return false;
-  if (!element.querySelector("h3") || !element.querySelector("a[href]")) return false;
   if (element.querySelector(".related-question-pair")) return false;
+  if (!element.querySelector("h3") || !element.querySelector("a[href]")) return false;
   return true;
 }
 

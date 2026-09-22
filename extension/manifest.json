@@ -1,11 +1,22 @@
 {
   "manifest_version": 3,
-  "name": "搜索结果阅读",
+  "name": "SearchLayout",
   "version": "0.0.1",
-  "description": "在百度和谷歌桌面网页搜索结果页上高亮查询，并把结果条目排成单列居中。",
+  "description": "把搜索结果排成更易读的单列或双列布局，并支持自动翻页。",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
   "action": {
-    "default_title": "搜索结果阅读",
-    "default_popup": "popup.html"
+    "default_title": "SearchLayout",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
   },
   "permissions": ["storage"],
   "content_scripts": [

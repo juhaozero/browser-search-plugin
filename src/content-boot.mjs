@@ -5,14 +5,16 @@ import { isExtensionContextValid } from "./content-lifecycle.mjs";
 
 export { DEFAULT_PREFS };
 
-const SINGLE_VIEW_RATIO = 0.92;
-/** 双列：略窄于视口，保证两侧安全边，两卡等宽 */
-const DOUBLE_VIEW_RATIO = 0.88;
-const SIDE_GAP = 24;
-const SINGLE_MIN = 640;
-const DOUBLE_MIN = 880;
-const ASIDE_GAP = 24;
-const ASIDE_MAX = 368;
+/** 单列壳宽：改卡片列宽主要调这里（同步改 content.css 里 --bsp-single-max） */
+const SINGLE_SHELL_MAX = 1100;
+/** 双列壳宽：两卡总宽（同步改 content.css 里 --bsp-double-max） */
+const DOUBLE_SHELL_MAX = 1320;
+const SIDE_GAP = 32;
+const ASIDE_GAP = 28;
+const ASIDE_MAX = 360;
+/** 结果卡片间距（同步 CSS --bsp-card-gap / --bsp-card-column-gap） */
+const CARD_GAP = 22;
+const CARD_COLUMN_GAP = 24;
 
 const CENTERED_STYLE_PROPS = [
   "width",
@@ -35,6 +37,9 @@ const CENTERED_STYLE_PROPS = [
   "flex-grow",
   "position",
   "box-sizing",
+  "top",
+  "bottom",
+  "grid-template-columns",
 ];
 
 const ASIDE_IDS = ["rhs", "content_right"];
@@ -43,6 +48,17 @@ const RELAYOUT_FLAG = "bspRelayout";
 const DOM_MUTE_FLAG = "bspDomMute";
 
 const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "content_left"];
+/** 现代谷歌导航标签的稳定标记（jsname 在多次改版中保持不变） */
+const NAV_TAB_JSNAME = "pxBnId";
+/** 导航标签文本兜底：只在已知导航容器内匹配，避免误伤正文里同名的链接 */
+const NAV_TAB_LABELS = new Set([
+  "全部", "图片", "视频", "新闻", "短视频", "网页", "图书", "地图", "购物", "财经", "更多", "工具",
+  "All", "Images", "Videos", "News", "Books", "Maps", "Shopping", "Finance", "More", "Tools",
+]);
+/** 导航带最大高度：超过说明上爬过头，命中的是整页容器而非单行导航 */
+const NAV_BAND_MAX_HEIGHT = 96;
+/** 上爬禁止越过的整页容器 */
+const NAV_BAND_STOP_IDS = new Set(["cnt", "main", "rcnt", "center_col", "search", "gsr", "content_left"]);
 
 /**
  * @param {Document} document
@@ -86,10 +102,9 @@ export async function bootSearchPage(document, url, layout = {}, deps = {}) {
 
   if (deps.watchDom !== false) {
     watcher = watchResults(document, () => {
-      if (!isExtensionContextValid()) {
-        disposeBoot();
-        return;
-      }
+      // 失效时只跳过本轮；由 content 侧 interval guard 负责 teardown，避免误判瞬时拆掉 UI
+      if (!isExtensionContextValid()) return;
+      if (disposed) return;
       watcher.runMuted(() => {
         session.refresh();
         realign(document, layout);
@@ -205,6 +220,7 @@ export function alignResultsBox(box, viewportWidth) {
     root.dataset.bspShellWidth = String(metrics.shellWidth);
     root.style.setProperty("--bsp-shell-width", `${metrics.shellWidth}px`);
     root.style.setProperty("--bsp-main-width", `${metrics.mainWidth}px`);
+    root.style.setProperty("--bsp-target-left", `${metrics.targetLeft}px`);
   } finally {
     delete root.dataset[RELAYOUT_FLAG];
   }
@@ -215,10 +231,9 @@ export function alignResultsBox(box, viewportWidth) {
  * @param {number} viewportWidth
  */
 export function contentWidth(mode, viewportWidth) {
-  const ratio = mode === "double" ? DOUBLE_VIEW_RATIO : SINGLE_VIEW_RATIO;
-  const floor = mode === "double" ? DOUBLE_MIN : SINGLE_MIN;
-  const usable = Math.max(0, viewportWidth - SIDE_GAP * 2);
-  return Math.min(usable, Math.max(Math.min(floor, usable), Math.round(viewportWidth * ratio)));
+  const target = mode === "double" ? DOUBLE_SHELL_MAX : SINGLE_SHELL_MAX;
+  const usable = Math.max(280, viewportWidth - SIDE_GAP * 2);
+  return Math.min(target, usable);
 }
 
 /**
@@ -277,16 +292,13 @@ function applyShellLayout(document, box, metrics) {
     ?? box.parentElement;
   const rcnt = document.getElementById("rcnt");
 
-  neutralizeGoogleLeftBias(document);
+  neutralizePageLeftBias(document);
 
   /** @type {Set<HTMLElement>} */
   const placed = new Set();
-  for (const el of collectHeaderBands(document)) {
-    placeShellOnce(el, metrics.shellWidth, metrics.targetLeft, placed);
-  }
-
   if (metrics.hasAside && rcnt && metrics.aside && metrics.asideInShell) {
-    placeShellOnce(rcnt, metrics.shellWidth, metrics.targetLeft, placed);
+    alignBandToTarget(rcnt, metrics.shellWidth, metrics.targetLeft);
+    placed.add(rcnt);
     rcnt.style.setProperty("display", "flex", "important");
     rcnt.style.setProperty("flex-direction", "row", "important");
     rcnt.style.setProperty("align-items", "flex-start", "important");
@@ -312,8 +324,36 @@ function applyShellLayout(document, box, metrics) {
     metrics.aside.style.setProperty("float", "none", "important");
     metrics.aside.style.setProperty("position", "relative", "important");
   } else if (column) {
+    // 整页容器多为 grid：会把列宽夹到旧列宽（并因此整体偏右），恢复成普通块让壳真居中
+    if (rcnt && !hasVisibleSibling(rcnt, column)) {
+      stampCentered(rcnt);
+      rcnt.style.setProperty("display", "block", "important");
+      rcnt.style.setProperty("grid-template-columns", "none", "important");
+    }
     placeShellOnce(column, metrics.shellWidth, metrics.targetLeft, placed);
+    if (isBlockParent(column)) {
+      // 普通块父级下交给 auto margin：浏览器在真实包含块（已扣滚动条）内居中，比手算 delta 准
+      column.style.setProperty("left", "auto", "important");
+      column.style.setProperty("margin-left", "auto", "important");
+      column.style.setProperty("margin-right", "auto", "important");
+    }
   }
+
+  // 头部/导航统一锚定“实测”结果列左缘：innerWidth/targetLeft 这类推算值会因滚动条
+  // 与页面自身包含块不一致而稳定偏出 7~15px，必须在写完结果列宽度后实测量取。
+  const measured = measureBoxRect(box);
+  const anchorLeft = measured ? measured.left : metrics.targetLeft;
+  const bandWidth = measured && measured.width > 0 ? measured.width : metrics.shellWidth;
+  /** @type {HTMLElement[]} */
+  const bands = [];
+  for (const el of collectHeaderBands(document)) {
+    if (placeBandOnce(el, bandWidth, anchorLeft, placed)) bands.push(el);
+  }
+  // 导航必须独立按壳左缘对齐（百度 #s_tab 常在 head 外且全宽左贴边）
+  bands.push(...placeNavBands(document, bandWidth, anchorLeft, placed));
+  if (measured) reconcileBands(box, bands);
+  // 结果列可能过几帧才落位（首次量到的左缘不一定可信），持续收敛到全部对齐
+  scheduleSettleRetry(document, box, bands);
 
   box.style.width = "100%";
   box.style.maxWidth = "100%";
@@ -326,23 +366,25 @@ function applyShellLayout(document, box, metrics) {
   if (mode === "double") {
     box.style.setProperty("display", "grid", "important");
     box.style.setProperty("grid-template-columns", "minmax(0, 1fr) minmax(0, 1fr)", "important");
-    box.style.setProperty("column-gap", "20px", "important");
-    box.style.setProperty("row-gap", "14px", "important");
+    box.style.setProperty("column-gap", `${CARD_COLUMN_GAP}px`, "important");
+    box.style.setProperty("row-gap", `${CARD_GAP}px`, "important");
   }
 }
 
 /**
- * 清掉谷歌常见左侧固定 padding，不定宽（避免祖先与子级双重偏移）。
+ * 清掉搜索引擎常见左侧固定 padding（不定宽，避免祖先与子级双重偏移）。
  * @param {Document} document
  */
-function neutralizeGoogleLeftBias(document) {
-  for (const id of ["cnt", "center_col", "rcnt", "searchform", "appbar", "sfcnt", "main", "content_left", "head", "hdtb", "slim_appbar"]) {
+function neutralizePageLeftBias(document) {
+  for (const id of [
+    "cnt", "center_col", "rcnt", "searchform", "appbar", "sfcnt", "main",
+    "content_left", "head", "hdtb", "slim_appbar", "s_tab", "s_tab_inner",
+  ]) {
     const el = document.getElementById(id);
     if (!el) continue;
     stampCentered(el);
     el.style.setProperty("padding-left", "0", "important");
     el.style.setProperty("padding-right", "0", "important");
-    el.style.setProperty("margin-left", "0", "important");
     el.style.setProperty("left", "auto", "important");
     el.style.setProperty("right", "auto", "important");
     el.style.setProperty("transform", "none", "important");
@@ -361,11 +403,285 @@ function collectHeaderBands(document) {
     seen.add(el);
     bands.push(el);
   };
-  for (const id of ["searchform", "appbar", "slim_appbar", "sfcnt", "sf", "head", "s_tab", "hdtb", "hdtbSum"]) {
+  // 先放搜索区，导航交给 placeNavBands 强制处理
+  for (const id of ["searchform", "appbar", "slim_appbar", "sfcnt", "sf", "head"]) {
     push(document.getElementById(id));
   }
-  push(document.querySelector("form[role='search']")?.closest("#searchform, #sf, #sfcnt"));
+  push(document.querySelector("form[role='search']")?.closest("#searchform, #sf, #sfcnt, #head"));
   return bands;
+}
+
+/**
+ * 强制把导航条放到与结果列相同的壳宽/左缘。
+ * 谷歌 #hdtb 常为 position:sticky，用 left 定位无效，必须改 relative 再按视口位移。
+ * 现代谷歌的 #hdtb 是 0 高空壳，真实标签行在哈希类名容器里，需按内容定位。
+ * @param {Document} document
+ * @param {number} widthPx
+ * @param {number} targetLeft
+ * @param {Set<HTMLElement>} placed
+ */
+function placeNavBands(document, widthPx, targetLeft, placed) {
+  /** @type {HTMLElement[]} */
+  const aligned = [];
+  /** @type {HTMLElement[]} */
+  const candidates = [];
+  const push = (el) => {
+    if (!el || !(el instanceof HTMLElement) || candidates.includes(el)) return;
+    if (!isNavBandVisible(el)) return;
+    candidates.push(el);
+  };
+  for (const id of ["s_tab", "hdtb", "hdtbSum", "hdtb-msb", "hdtbMenus"]) {
+    push(document.getElementById(id));
+  }
+  push(document.querySelector("#s_tab, .s_tab"));
+  push(document.querySelector("#hdtb, #hdtbSum"));
+  push(document.querySelector("#hdtb-msb"));
+
+  // 只处理最外层，避免 hdtb 与 hdtb-msb 双重偏移
+  const roots = candidates.filter((el) => !candidates.some((other) => other !== el && other.contains(el)));
+  for (const el of roots) {
+    alignBandToTarget(el, widthPx, targetLeft);
+    placed.add(el);
+    aligned.push(el);
+  }
+
+  // 兜底：按标签内容找到真实导航带，只做水平校正（不动宽度，避免破坏其网格列宽）
+  const band = findNavTabBand(document);
+  if (!band) return aligned;
+  if (roots.some((el) => el === band || el.contains(band))) return aligned;
+  if ([...placed].some((el) => el !== band && (el.contains(band) || band.contains(el)))) return aligned;
+  shiftNavBand(band, targetLeft);
+  placed.add(band);
+  aligned.push(band);
+  return aligned;
+}
+
+/**
+ * 导航带是否真的有可见内容（现代谷歌 #hdtb 是 0 高空壳，写样式没有意义）。
+ * @param {HTMLElement} el
+ */
+function isNavBandVisible(el) {
+  const rect = rectOf(el);
+  return rect.height >= 8 && rect.width >= 120;
+}
+
+/**
+ * 按标签文本/稳定标记找出承载导航标签的“单行带”。
+ * @param {Document} document
+ * @returns {HTMLElement | null}
+ */
+function findNavTabBand(document) {
+  const links = collectNavTabLinks(document);
+  if (links.length < 2) return null;
+
+  let band = links[0];
+  for (const link of links) {
+    while (band && !band.contains(link)) band = band.parentElement;
+    if (!band) return null;
+  }
+  if (!band || isOwnDomElement(band)) return null;
+
+  const view = document.defaultView;
+  const viewport = document.body?.clientWidth || document.documentElement?.clientWidth || view?.innerWidth || 0;
+  const widthLimit = viewport > 0 ? viewport * 0.95 : Infinity;
+  let el = band;
+  while (el?.parentElement && el.parentElement !== document.body && el.parentElement !== document.documentElement) {
+    const parent = el.parentElement;
+    if (NAV_BAND_STOP_IDS.has(parent.id)) break;
+    if (isOwnDomElement(parent)) break;
+    const rect = rectOf(parent);
+    if (rect.height > NAV_BAND_MAX_HEIGHT || rect.width >= widthLimit) break;
+    el = parent;
+  }
+  if (NAV_BAND_STOP_IDS.has(el.id)) return null;
+  return el;
+}
+
+/**
+ * @param {Document} document
+ * @returns {HTMLElement[]}
+ */
+function collectNavTabLinks(document) {
+  /** @type {HTMLElement[]} */
+  const tagged = [];
+  for (const el of document.querySelectorAll(`a[jsname="${NAV_TAB_JSNAME}"]`)) {
+    if (el instanceof HTMLElement && isVisibleLink(el) && !isOwnDomElement(el)) tagged.push(el);
+  }
+  if (tagged.length >= 2) return tagged;
+
+  // 兜底：只在已知导航容器内按文本匹配
+  /** @type {HTMLElement[]} */
+  const fallback = [];
+  for (const el of document.querySelectorAll("#hdtb a, #s_tab a, .s_tab a")) {
+    if (!(el instanceof HTMLElement)) continue;
+    if (!NAV_TAB_LABELS.has((el.textContent ?? "").trim())) continue;
+    if (!isVisibleLink(el) || isOwnDomElement(el)) continue;
+    fallback.push(el);
+  }
+  return fallback;
+}
+
+/**
+ * @param {HTMLElement} el
+ */
+function isVisibleLink(el) {
+  const rect = rectOf(el);
+  return rect.width >= 16 && rect.height >= 16;
+}
+
+/**
+ * 安全取几何：没有 getBoundingClientRect（极简/测试 DOM）时返回零矩形而不是抛错。
+ * @param {HTMLElement | null | undefined} el
+ */
+function rectOf(el) {
+  if (!el || typeof el.getBoundingClientRect !== "function") {
+    return { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+  }
+  return el.getBoundingClientRect();
+}
+
+/**
+ * 导航带专用水平校正：不打断其网格列宽，只用 relative + left 贴到壳左缘。
+ * @param {HTMLElement} el
+ * @param {number} targetLeft
+ */
+function shiftNavBand(el, targetLeft) {
+  stampCentered(el);
+  el.style.setProperty("position", "relative", "important");
+  el.style.setProperty("top", "0", "important");
+  el.style.setProperty("bottom", "auto", "important");
+  el.style.setProperty("right", "auto", "important");
+  el.style.setProperty("float", "none", "important");
+  settleLeft(el, targetLeft);
+}
+
+/**
+ * 头部/导航带定位：定宽到壳宽后用 relative + left 对齐结果列。
+ * relative 位移不参与布局计算，既不受父级 grid/flex/auto margin 影响，也不会反过来挪动结果列。
+ * @param {HTMLElement} el
+ * @param {number} widthPx
+ * @param {number} targetLeft
+ */
+function alignBandToTarget(el, widthPx, targetLeft) {
+  stampCentered(el);
+  const maxW = `min(${widthPx}px, calc(100vw - ${SIDE_GAP * 2}px))`;
+  el.style.setProperty("position", "relative", "important");
+  el.style.setProperty("top", "0", "important");
+  el.style.setProperty("bottom", "auto", "important");
+  el.style.setProperty("right", "auto", "important");
+  el.style.setProperty("width", `${widthPx}px`, "important");
+  el.style.setProperty("max-width", maxW, "important");
+  el.style.setProperty("min-width", "0", "important");
+  el.style.setProperty("padding-left", "0", "important");
+  el.style.setProperty("padding-right", "0", "important");
+  el.style.setProperty("margin-left", "0", "important");
+  el.style.setProperty("margin-right", "0", "important");
+  el.style.setProperty("box-sizing", "border-box", "important");
+  el.style.setProperty("float", "none", "important");
+  el.style.setProperty("transform", "none", "important");
+  el.style.setProperty("overflow", "visible", "important");
+  settleLeft(el, targetLeft);
+}
+
+/**
+ * 闭环校正左缘：先归零量一次，写出 relative 位移，再复测并补掉残差。
+ * 父级 grid/flex 夹持、auto margin、祖先 zoom/transform 都可能让“一次算差值”落不到位。
+ * @param {HTMLElement} el
+ * @param {number} targetLeft
+ */
+function settleLeft(el, targetLeft) {
+  el.style.setProperty("left", "0", "important");
+  const base = rectOf(el).left;
+  let offset = clampNavOffset(base, Math.round(targetLeft - base));
+  el.style.setProperty("left", `${offset}px`, "important");
+  for (let round = 0; round < 2; round += 1) {
+    const residual = Math.round(targetLeft - rectOf(el).left);
+    if (residual === 0) break;
+    offset = clampNavOffset(base, offset + residual);
+    el.style.setProperty("left", `${offset}px`, "important");
+  }
+}
+
+/**
+ * 别把左缘推出视口。
+ * @param {number} base
+ * @param {number} offset
+ */
+function clampNavOffset(base, offset) {
+  if (base + offset < SIDE_GAP) return Math.round(SIDE_GAP - base);
+  return offset;
+}
+
+/**
+ * 收尾复测：全部定位写完后，用结果列“最终”左缘再对一次。
+ * 结果列可能因头部定宽而二次回流，这里最多补两轮，避免与结果列互相追。
+ * @param {HTMLElement} box
+ * @param {HTMLElement[]} bands
+ */
+function reconcileBands(box, bands) {
+  if (!bands.length) return;
+  for (let round = 0; round < 2; round += 1) {
+    const left = Math.round(rectOf(box).left);
+    if (!Number.isFinite(left) || left <= 0) return;
+    let settled = true;
+    for (const el of bands) {
+      settleLeft(el, left);
+      if (Math.abs(Math.round(rectOf(el).left) - left) > 1) settled = false;
+    }
+    if (settled) return;
+  }
+}
+
+/**
+ * 结果列可能过几帧才落位（首次实测可能不可用）。这里持续收敛：量到合理左缘就对齐，
+ * 直到全部对齐或次数用尽。只写 relative 偏移，且结果列一旦变化就跟着走，
+ * 已 dispose 的元素由 data-bsp-centered 标记守卫跳过。
+ * @param {Document} document
+ * @param {HTMLElement} box
+ * @param {HTMLElement[]} bands
+ * @param {number} [attempts]
+ * @param {number} [intervalMs]
+ */
+function scheduleSettleRetry(document, box, bands, attempts = 10, intervalMs = 140) {
+  const view = document.defaultView;
+  if (!view || typeof view.setTimeout !== "function" || !bands.length) return;
+  let round = 0;
+  const tick = () => {
+    round += 1;
+    const measured = box.isConnected ? measureBoxRect(box) : null;
+    let settled = true;
+    if (measured) {
+      for (const el of bands) {
+        if (!el.isConnected || el.dataset?.bspCentered !== "1") continue;
+        if (Math.abs(Math.round(rectOf(el).left) - measured.left) <= 1) continue;
+        settleLeft(el, measured.left);
+        settled = false;
+      }
+    } else {
+      settled = false;
+    }
+    if (settled || round >= attempts) return;
+    view.setTimeout(tick, intervalMs);
+  };
+  view.setTimeout(tick, intervalMs);
+}
+
+/**
+ * 同一条祖先链上只定宽一次，防止双重位移。
+ * @param {HTMLElement | null} el
+ * @param {number} widthPx
+ * @param {number} targetLeft
+ * @param {Set<HTMLElement>} placed
+ * @returns {boolean} 是否真的写了定位
+ */
+function placeBandOnce(el, widthPx, targetLeft, placed) {
+  if (!el || !widthPx || widthPx <= 0) return false;
+  for (const other of placed) {
+    if (other.contains(el) || el.contains(other)) return false;
+  }
+  alignBandToTarget(el, widthPx, targetLeft);
+  placed.add(el);
+  return true;
 }
 
 /**
@@ -385,7 +701,8 @@ function placeShellOnce(el, widthPx, targetLeft, placed) {
 }
 
 /**
- * 先清左边距，再按元素当前左缘与目标左缘的差值校正（不依赖父级测量）。
+ * 按视口目标左缘校正：谷歌 flex 父级下 margin:auto 常无效，需用实测 delta。
+ * 不再配合 overflow:clip，避免搜索框被裁切。
  * @param {HTMLElement} el
  * @param {number} widthPx
  * @param {number} targetLeft
@@ -396,8 +713,9 @@ function placeAt(el, widthPx, targetLeft) {
   const position = view && typeof view.getComputedStyle === "function"
     ? view.getComputedStyle(el).position
     : "";
+  const maxW = `min(${widthPx}px, calc(100vw - ${SIDE_GAP * 2}px))`;
   el.style.setProperty("width", `${widthPx}px`, "important");
-  el.style.setProperty("max-width", `${widthPx}px`, "important");
+  el.style.setProperty("max-width", maxW, "important");
   el.style.setProperty("min-width", "0", "important");
   el.style.setProperty("padding-left", "0", "important");
   el.style.setProperty("padding-right", "0", "important");
@@ -405,22 +723,30 @@ function placeAt(el, widthPx, targetLeft) {
   el.style.setProperty("float", "none", "important");
   el.style.setProperty("transform", "none", "important");
   el.style.setProperty("right", "auto", "important");
+  el.style.setProperty("overflow", "visible", "important");
+  el.style.setProperty("align-self", "center", "important");
 
   if (position === "fixed" || position === "sticky") {
-    el.style.setProperty("left", `${targetLeft}px`, "important");
+    // sticky/fixed 的 left 不负责文档流水平居中；改为 relative 位移
+    el.style.setProperty("position", "relative", "important");
+    el.style.setProperty("top", position === "sticky" ? "0" : "auto", "important");
     el.style.setProperty("margin-left", "0", "important");
     el.style.setProperty("margin-right", "0", "important");
+    settleLeft(el, targetLeft);
     return;
   }
 
   el.style.setProperty("left", "auto", "important");
   el.style.setProperty("margin-left", "0", "important");
   el.style.setProperty("margin-right", "auto", "important");
-  // 强制读布局，用当前左缘与目标的差值一次校正
   const currentLeft = typeof el.getBoundingClientRect === "function"
     ? el.getBoundingClientRect().left
     : 0;
-  const delta = Math.round(targetLeft - currentLeft);
+  let delta = Math.round(targetLeft - currentLeft);
+  // 防止校正过量把左缘顶出视口
+  if (currentLeft + delta < SIDE_GAP) {
+    delta = Math.round(SIDE_GAP - currentLeft);
+  }
   el.style.setProperty("margin-left", `${delta}px`, "important");
 }
 
@@ -441,6 +767,10 @@ function clearCenteredLayout(document) {
     }
     delete el.dataset.bspCentered;
   }
+  const root = document.documentElement;
+  root.style.removeProperty("--bsp-shell-width");
+  root.style.removeProperty("--bsp-main-width");
+  root.style.removeProperty("--bsp-target-left");
   const box = document.getElementById("bsp-results");
   if (!box) return;
   box.style.width = "";
@@ -510,17 +840,28 @@ export function watchResults(document, onChange) {
     },
   };
   if (typeof MutationObserver !== "function") return noop;
-  const root = resolveResultsWatchRoot(document);
-  if (!root) return noop;
 
   let timer = 0;
   let muteDepth = 0;
+  /** @type {MutationObserver | null} */
+  let observer = null;
+  /** @type {ReturnType<typeof setInterval> | number | null} */
+  let findTimer = null;
+  let findAttempts = 0;
+
   const clearTimer = () => {
     if (!timer) return;
     (globalThis.clearTimeout ?? clearTimeout)(timer);
     timer = 0;
   };
-  const observer = new MutationObserver((records) => {
+
+  const clearFindTimer = () => {
+    if (findTimer == null) return;
+    (globalThis.clearInterval ?? clearInterval)(findTimer);
+    findTimer = null;
+  };
+
+  const onMutations = (records) => {
     if (muteDepth > 0) return;
     if (document.documentElement.dataset[RELAYOUT_FLAG]) return;
     if (document.documentElement.dataset[DOM_MUTE_FLAG]) return;
@@ -530,8 +871,31 @@ export function watchResults(document, onChange) {
       timer = 0;
       onChange();
     }, 120);
-  });
-  observer.observe(root, { childList: true, subtree: true });
+  };
+
+  const attach = (root) => {
+    observer = new MutationObserver(onMutations);
+    observer.observe(root, { childList: true, subtree: true });
+  };
+
+  const root = resolveResultsWatchRoot(document);
+  if (root) {
+    attach(root);
+  } else {
+    // 结果容器晚到时用有界轮询挂载，避免对 body 开 subtree 观察（易 OOM）
+    findTimer = (globalThis.setInterval ?? setInterval)(() => {
+      findAttempts += 1;
+      const found = resolveResultsWatchRoot(document);
+      if (found) {
+        clearFindTimer();
+        attach(found);
+        onChange();
+        return;
+      }
+      if (findAttempts >= 40) clearFindTimer();
+    }, 250);
+  }
+
   return {
     /**
      * 自身 DOM 改写期间屏蔽观察，并用 takeRecords 丢掉已堆积记录，避免清 mute 后二次触发。
@@ -545,14 +909,16 @@ export function watchResults(document, onChange) {
       try {
         return fn();
       } finally {
-        observer.takeRecords?.();
+        observer?.takeRecords?.();
         clearTimer();
         muteDepth -= 1;
         if (muteDepth === 0) delete document.documentElement.dataset[DOM_MUTE_FLAG];
       }
     },
     dispose() {
-      observer.disconnect();
+      clearFindTimer();
+      observer?.disconnect();
+      observer = null;
       clearTimer();
       muteDepth = 0;
       delete document.documentElement.dataset[DOM_MUTE_FLAG];
@@ -685,6 +1051,53 @@ function isDisplayed(el) {
 }
 
 function measureViewport() {
+  // 必须用“结果列真正的包含块宽度”，而不是 innerWidth：
+  // innerWidth 含滚动条，body 自身还可能再窄一截（实测 1920 → 1905 → 1890），
+  // 用 innerWidth 推算 targetLeft 会稳定偏出十几像素，头部/导航就和卡片列错位。
+  const bodyWidth = globalThis.document?.body?.clientWidth;
+  if (typeof bodyWidth === "number" && bodyWidth > 0) return bodyWidth;
+  const layoutWidth = globalThis.document?.documentElement?.clientWidth;
+  if (typeof layoutWidth === "number" && layoutWidth > 0) return layoutWidth;
   const width = globalThis.innerWidth;
   return typeof width === "number" && width > 0 ? width : undefined;
+}
+
+/**
+ * 实测结果列几何。左缘 <= 0 说明此刻还没布局完（或不可见），返回 null 交给延迟重试，
+ * 绝不能用推算值顶替，否则会稳定偏出滚动条那几像素。
+ * @param {HTMLElement} box
+ * @returns {{ left: number, width: number } | null}
+ */
+function measureBoxRect(box) {
+  const rect = rectOf(box);
+  const left = Math.round(rect.left);
+  if (!Number.isFinite(left) || left <= 0) return null;
+  return { left, width: Math.round(rect.width) };
+}
+
+/**
+ * 父级是普通块容器时，auto margin 能在真实包含块内居中（grid/flex 下会被忽略）。
+ * @param {HTMLElement} el
+ */
+function isBlockParent(el) {
+  const parent = el.parentElement;
+  const view = el.ownerDocument?.defaultView;
+  if (!parent || !view || typeof view.getComputedStyle !== "function") return false;
+  const display = view.getComputedStyle(parent).display;
+  return display === "block" || display === "flow-root";
+}
+
+/**
+ * 整页容器里是否还有可见的兄弟列（侧栏）：有就不该把它降级成块布局。
+ * @param {HTMLElement} container
+ * @param {HTMLElement | null} column
+ */
+function hasVisibleSibling(container, column) {
+  for (const child of container.children) {
+    if (child === column) continue;
+    if (!(child instanceof HTMLElement)) continue;
+    if (!isDisplayed(child)) continue;
+    if (rectOf(child).width >= 80) return true;
+  }
+  return false;
 }

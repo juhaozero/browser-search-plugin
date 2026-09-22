@@ -20,5 +20,6 @@ await cp("extension/content.js", "dist/content.js");
 await cp("extension/popup.html", "dist/popup.html");
 await cp("extension/popup.css", "dist/popup.css");
 await cp("extension/popup.js", "dist/popup.js");
+await cp("extension/icons", "dist/icons", { recursive: true });
 
 console.log("已构建，可加载 extension 或 dist 目录");
