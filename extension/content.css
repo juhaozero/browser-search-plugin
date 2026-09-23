@@ -1,3 +1,24 @@
+/*
+ * 布局就绪前隐藏结果区与顶栏，避免原生左偏闪一下再跳到居中。
+ * document_start 注入；boot 写完居中后再置 data-bsp-ready。
+ */
+html:not([data-bsp-ready]) #content_left,
+html:not([data-bsp-ready]) #rso,
+html:not([data-bsp-ready]) #search,
+html:not([data-bsp-ready]) #center_col,
+html:not([data-bsp-ready]) #searchform,
+html:not([data-bsp-ready]) #appbar,
+html:not([data-bsp-ready]) #slim_appbar,
+html:not([data-bsp-ready]) #sfcnt,
+html:not([data-bsp-ready]) #sf,
+html:not([data-bsp-ready]) #head,
+html:not([data-bsp-ready]) #s_tab,
+html:not([data-bsp-ready]) #hdtb,
+html:not([data-bsp-ready]) #hdtbSum,
+html:not([data-bsp-ready]) #hdtb-msb {
+  visibility: hidden !important;
+}
+
 html[data-bsp-active] {
   /* —— 调卡片/列宽：改这些变量即可（壳宽还需同步 src/content-boot.mjs 常量）—— */
   --bsp-single-max: 800px;
@@ -46,10 +67,25 @@ html[data-bsp-active] #content_left[data-bsp-centered],
 html[data-bsp-active] #rcnt[data-bsp-centered] {
   float: none !important;
   overflow: visible !important;
-  /* 水平位置由 JS 按视口写入，避免与 margin:auto 在 flex 下失效冲突 */
 }
 
-/* 百度/谷歌导航：打断默认左缩进；水平位置由 JS placeNavAt 写入 */
+/* 顶栏稳态居中：靠 auto margin，避免 JS 反复写 left 导致肉眼跳动 */
+html[data-bsp-active] #searchform[data-bsp-centered],
+html[data-bsp-active] #appbar[data-bsp-centered],
+html[data-bsp-active] #slim_appbar[data-bsp-centered],
+html[data-bsp-active] #sfcnt[data-bsp-centered],
+html[data-bsp-active] #sf[data-bsp-centered],
+html[data-bsp-active] #head[data-bsp-centered] {
+  width: var(--bsp-shell-width) !important;
+  max-width: min(var(--bsp-shell-width), calc(100vw - 64px)) !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  left: auto !important;
+  right: auto !important;
+  box-sizing: border-box !important;
+}
+
+/* 百度/谷歌导航：打断默认左缩进；水平位置由 JS 写入 */
 html[data-bsp-active] #s_tab[data-bsp-centered],
 html[data-bsp-active] #s_tab_inner[data-bsp-centered],
 html[data-bsp-active] #hdtb[data-bsp-centered],

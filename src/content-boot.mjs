@@ -2,6 +2,7 @@ import { createSearchSession, isDesktopWebSearch } from "./search-session.mjs";
 import { createAutoPager, fetchHtmlDocument } from "./auto-page.mjs";
 import { DEFAULT_PREFS, createChromePrefsStore } from "./preferences.mjs";
 import { isExtensionContextValid } from "./content-lifecycle.mjs";
+import { endLayoutGate } from "./layout-gate.mjs";
 
 export { DEFAULT_PREFS };
 
@@ -82,6 +83,8 @@ export async function bootSearchPage(document, url, layout = {}, deps = {}) {
   const session = createSearchSession(document, url, prefs);
   realign(document, layout);
   markActive(document, session.engine);
+  // 布局已落到自定义列模式（或 original），允许显示结果区
+  endLayoutGate(document);
 
   let watcher = {
     dispose() {},
@@ -175,6 +178,8 @@ export async function bootSearchPage(document, url, layout = {}, deps = {}) {
       delete document.documentElement.dataset.bspActive;
       delete document.documentElement.dataset.bspEngine;
       delete document.documentElement.dataset.bspColumnMode;
+      // 拆掉布局时重新关门控；下一次 start/boot 会再打开
+      delete document.documentElement.dataset.bspReady;
     });
     silent(() => {
       if (resizeTimer) (globalThis.clearTimeout ?? clearTimeout)(resizeTimer);
@@ -211,13 +216,23 @@ export function alignResultsBox(box, viewportWidth) {
   }
   if (!viewportWidth || viewportWidth <= 0) return;
 
+  const metrics = layoutMetrics(document, mode, viewportWidth);
   const root = document.documentElement;
+  // 壳宽/模式未变时跳过清样式重排，避免 MutationObserver 触发时顶栏闪跳
+  if (
+    root.dataset.bspShellWidth === String(metrics.shellWidth)
+    && root.dataset.bspColumnMode === mode
+    && document.querySelector("[data-bsp-centered]")
+  ) {
+    return;
+  }
+
   root.dataset[RELAYOUT_FLAG] = "1";
   try {
     clearCenteredLayout(document);
-    const metrics = layoutMetrics(document, mode, viewportWidth);
     applyShellLayout(document, box, metrics);
     root.dataset.bspShellWidth = String(metrics.shellWidth);
+    root.dataset.bspColumnMode = mode;
     root.style.setProperty("--bsp-shell-width", `${metrics.shellWidth}px`);
     root.style.setProperty("--bsp-main-width", `${metrics.mainWidth}px`);
     root.style.setProperty("--bsp-target-left", `${metrics.targetLeft}px`);
@@ -339,21 +354,11 @@ function applyShellLayout(document, box, metrics) {
     }
   }
 
-  // 头部/导航统一锚定“实测”结果列左缘：innerWidth/targetLeft 这类推算值会因滚动条
-  // 与页面自身包含块不一致而稳定偏出 7~15px，必须在写完结果列宽度后实测量取。
-  const measured = measureBoxRect(box);
-  const anchorLeft = measured ? measured.left : metrics.targetLeft;
-  const bandWidth = measured && measured.width > 0 ? measured.width : metrics.shellWidth;
-  /** @type {HTMLElement[]} */
-  const bands = [];
+  // 顶栏用 margin:auto 稳态居中（不用 left 像素追结果列，避免显示后反复跳动）
   for (const el of collectHeaderBands(document)) {
-    if (placeBandOnce(el, bandWidth, anchorLeft, placed)) bands.push(el);
+    placeBandOnce(el, metrics.shellWidth, metrics.targetLeft, placed);
   }
-  // 导航必须独立按壳左缘对齐（百度 #s_tab 常在 head 外且全宽左贴边）
-  bands.push(...placeNavBands(document, bandWidth, anchorLeft, placed));
-  if (measured) reconcileBands(box, bands);
-  // 结果列可能过几帧才落位（首次量到的左缘不一定可信），持续收敛到全部对齐
-  scheduleSettleRetry(document, box, bands);
+  placeNavBands(document, metrics.shellWidth, metrics.targetLeft, placed);
 
   box.style.width = "100%";
   box.style.maxWidth = "100%";
@@ -541,46 +546,49 @@ function rectOf(el) {
 }
 
 /**
- * 导航带专用水平校正：不打断其网格列宽，只用 relative + left 贴到壳左缘。
- * @param {HTMLElement} el
- * @param {number} targetLeft
- */
-function shiftNavBand(el, targetLeft) {
-  stampCentered(el);
-  el.style.setProperty("position", "relative", "important");
-  el.style.setProperty("top", "0", "important");
-  el.style.setProperty("bottom", "auto", "important");
-  el.style.setProperty("right", "auto", "important");
-  el.style.setProperty("float", "none", "important");
-  settleLeft(el, targetLeft);
-}
-
-/**
- * 头部/导航带定位：定宽到壳宽后用 relative + left 对齐结果列。
- * relative 位移不参与布局计算，既不受父级 grid/flex/auto margin 影响，也不会反过来挪动结果列。
+ * 头部/导航稳态居中：定壳宽 + margin:auto，不写 left 像素。
+ * 像素追赶（settleLeft）会在结果列回流后反复改位，是顶栏「每次跳一下」的主因。
  * @param {HTMLElement} el
  * @param {number} widthPx
- * @param {number} targetLeft
+ * @param {number} [_targetLeft] 保留参数以兼容旧调用方
  */
-function alignBandToTarget(el, widthPx, targetLeft) {
+function alignBandToTarget(el, widthPx, _targetLeft) {
   stampCentered(el);
   const maxW = `min(${widthPx}px, calc(100vw - ${SIDE_GAP * 2}px))`;
   el.style.setProperty("position", "relative", "important");
   el.style.setProperty("top", "0", "important");
   el.style.setProperty("bottom", "auto", "important");
+  el.style.setProperty("left", "auto", "important");
   el.style.setProperty("right", "auto", "important");
   el.style.setProperty("width", `${widthPx}px`, "important");
   el.style.setProperty("max-width", maxW, "important");
   el.style.setProperty("min-width", "0", "important");
   el.style.setProperty("padding-left", "0", "important");
   el.style.setProperty("padding-right", "0", "important");
-  el.style.setProperty("margin-left", "0", "important");
-  el.style.setProperty("margin-right", "0", "important");
+  el.style.setProperty("margin-left", "auto", "important");
+  el.style.setProperty("margin-right", "auto", "important");
   el.style.setProperty("box-sizing", "border-box", "important");
   el.style.setProperty("float", "none", "important");
   el.style.setProperty("transform", "none", "important");
   el.style.setProperty("overflow", "visible", "important");
-  settleLeft(el, targetLeft);
+}
+
+/**
+ * 导航带水平居中：保持自身布局，只用 auto margin 贴到视口中间。
+ * @param {HTMLElement} el
+ * @param {number} [_targetLeft]
+ */
+function shiftNavBand(el, _targetLeft) {
+  stampCentered(el);
+  el.style.setProperty("position", "relative", "important");
+  el.style.setProperty("top", "0", "important");
+  el.style.setProperty("bottom", "auto", "important");
+  el.style.setProperty("left", "auto", "important");
+  el.style.setProperty("right", "auto", "important");
+  el.style.setProperty("margin-left", "auto", "important");
+  el.style.setProperty("margin-right", "auto", "important");
+  el.style.setProperty("float", "none", "important");
+  el.style.setProperty("transform", "none", "important");
 }
 
 /**

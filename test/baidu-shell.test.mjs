@@ -19,7 +19,9 @@ test("百度网页搜索默认单列居中并给不同高亮段不同标记", as
   const left = Math.max(24, Math.round((1200 - expected) / 2));
   assert.equal(document.getElementById("content_left").style.width, `${expected}px`);
   assert.equal(document.getElementById("content_left").style.marginLeft, `${left}px`);
+  // 顶栏与结果列同宽居中
   assert.equal(document.getElementById("head").style.width, `${expected}px`);
+  assert.equal(document.getElementById("head").dataset.bspCentered, "1");
   assert.equal(document.querySelector("h3 mark.bsp-hl"), null);
   assert.equal(document.querySelector("#kw mark"), null);
   assert.equal(document.querySelector("#rs mark"), null);
@@ -41,7 +43,7 @@ test("首页、手机版和资讯页不改页面", async () => {
   }
 });
 
-test("单列居中按视口把结果列和搜索框放到页面中间", () => {
+test("单列居中按视口把结果列放到页面中间", () => {
   const { document } = parseHTML(`
     <form id="form"></form>
     <div id="content_left"><div id="bsp-results" data-mode="single-center"></div></div>
@@ -66,12 +68,31 @@ test("谷歌搜索框与结果列共用同一居中宽度", () => {
   const box = document.getElementById("bsp-results");
   alignSingleCenter(box, 1200);
   const expected = contentWidth("single-center", 1200);
-  const left = Math.max(24, Math.round((1200 - expected) / 2));
-  assert.equal(document.getElementById("searchform").style.width, `${expected}px`);
-  assert.equal(document.getElementById("searchform").style.marginLeft, `${left}px`);
+  const form = document.getElementById("searchform");
+  assert.equal(form.style.width, `${expected}px`);
+  assert.equal(form.dataset.bspCentered, "1");
+  assert.equal(form.style.marginLeft, "auto");
+  assert.equal(form.style.marginRight, "auto");
+  assert.equal(form.style.left, "auto");
   assert.equal(document.getElementById("appbar").style.width, `${expected}px`);
   assert.equal(document.getElementById("center_col").style.width, `${expected}px`);
   assert.equal(document.getElementById("tsf").style.width, "");
+});
+
+test("壳宽未变时再次居中不改写顶栏，避免闪跳", () => {
+  const { document } = parseHTML(`
+    <div id="searchform"></div>
+    <div id="center_col"><div id="bsp-results" data-mode="single-center"></div></div>
+  `);
+  const box = document.getElementById("bsp-results");
+  alignSingleCenter(box, 1200);
+  document.documentElement.dataset.bspColumnMode = "single-center";
+  const form = document.getElementById("searchform");
+  form.style.setProperty("left", "12px");
+  alignSingleCenter(box, 1200);
+  // 跳过重排时应保留现有样式，而不是清掉再追像素
+  assert.equal(form.style.left, "12px");
+  assert.equal(form.dataset.bspCentered, "1");
 });
 
 test("有右侧知识卡时给结果列预留空间避免重叠", () => {
@@ -85,13 +106,13 @@ test("有右侧知识卡时给结果列预留空间避免重叠", () => {
   alignSingleCenter(document.getElementById("bsp-results"), 1400);
   const metrics = layoutMetrics(document, "single-center", 1400);
   assert.equal(document.getElementById("center_col").style.maxWidth, `${metrics.mainWidth}px`);
-  assert.equal(document.getElementById("rhs").style.width, "368px");
+  assert.equal(document.getElementById("rhs").style.width, "360px");
   assert.equal(document.getElementById("rcnt").style.display, "flex");
   assert.equal(document.getElementById("rcnt").style.width, `${metrics.shellWidth}px`);
   assert.equal(document.getElementById("searchform").style.width, `${metrics.shellWidth}px`);
 });
 
-test("双列两卡等宽并整体按视口居中", () => {
+test("双列两卡等宽并整体按视口居中，搜索框同步居中", () => {
   const { document } = parseHTML(`
     <div id="searchform"></div>
     <div id="appbar"></div>
@@ -102,7 +123,8 @@ test("双列两卡等宽并整体按视口居中", () => {
   const expected = contentWidth("double", 1200);
   const left = Math.max(24, Math.round((1200 - expected) / 2));
   assert.equal(document.getElementById("searchform").style.width, `${expected}px`);
-  assert.equal(document.getElementById("searchform").style.marginLeft, `${left}px`);
+  assert.equal(document.getElementById("searchform").dataset.bspCentered, "1");
+  assert.equal(document.getElementById("searchform").style.marginLeft, "auto");
   assert.equal(document.getElementById("appbar").style.width, `${expected}px`);
   assert.equal(document.getElementById("center_col").style.width, `${expected}px`);
   assert.equal(document.getElementById("center_col").style.marginLeft, `${left}px`);
@@ -111,10 +133,10 @@ test("双列两卡等宽并整体按视口居中", () => {
 
 test("列模式结果条目使用卡片样式并放开内部宽度", () => {
   const css = readFileSync(new URL("../extension/content.css", import.meta.url), "utf8");
-  assert.match(css, /#bsp-results\[data-mode="single-center"\] > \*:has\(h3\)[\s\S]*border-radius:\s*12px/);
+  assert.match(css, /#bsp-results\[data-mode="single-center"\] > \*:has\(h3\)[\s\S]*border-radius:\s*var\(--bsp-card-radius\)/);
   assert.match(css, /#bsp-results\[data-mode="double"\][\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
   assert.match(css, /yuRUbf[\s\S]*max-width:\s*100%\s*!important/);
-  assert.match(css, /padding:\s*16px\s+18px/);
+  assert.match(css, /padding:\s*var\(--bsp-card-pad-y\)\s+var\(--bsp-card-pad-x\)/);
 });
 
 test("清单只注入搜索结果页且不申请落地页权限", () => {

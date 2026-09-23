@@ -4,6 +4,13 @@ import {
   isExtensionContextValid,
   searchPageKey,
 } from "./content-lifecycle.mjs";
+import {
+  armLayoutGateSafety,
+  beginLayoutGate,
+  endLayoutGate,
+  waitForDocumentLoad,
+  waitForResultsShell,
+} from "./layout-gate.mjs";
 
 const GLOBAL_KEY = "__bspContentController";
 
@@ -22,9 +29,24 @@ const lifecycle = createContentLifecycle({ bootSearchPage, isDesktopWebSearch })
 async function start(reason = "boot") {
   if (!isExtensionContextValid()) {
     lifecycle.disposeAll();
+    endLayoutGate(document);
     return;
   }
-  await lifecycle.start(document, location.href, reason);
+  // 先关门控再 dispose/boot，避免还原原生 DOM 时闪一下
+  beginLayoutGate(document);
+  const cancelSafety = armLayoutGateSafety(document);
+  try {
+    await waitForDocumentLoad(document);
+    await waitForResultsShell(document);
+    if (!isExtensionContextValid()) {
+      lifecycle.disposeAll();
+      return;
+    }
+    await lifecycle.start(document, location.href, reason);
+  } finally {
+    endLayoutGate(document);
+    cancelSafety();
+  }
 }
 
 function onPopState() {
@@ -49,6 +71,12 @@ function installContextGuard(view) {
 function disposeController() {
   try {
     lifecycle.disposeAll();
+  } catch {
+    // ignore
+  }
+  // 永久拆掉时恢复可见，避免结果区卡在 hidden
+  try {
+    endLayoutGate(document);
   } catch {
     // ignore
   }
