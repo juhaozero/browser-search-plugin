@@ -2,6 +2,10 @@
 
 Chrome 扩展：把**百度 / 谷歌桌面网页搜索结果**排成更易读的单列或双列，并支持自动翻页。
 
+![谷歌搜索结果双列布局示意](./extension/store-assets/screenshot-04-dual-column-live.png)
+
+[English](./README.en.md) · [隐私政策](./PRIVACY.md)
+
 ## 功能
 
 - **列模式**：原始 / 单列 / 单列居中 / 双列（结果以卡片形式排列）
