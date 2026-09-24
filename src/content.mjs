@@ -32,6 +32,15 @@ async function start(reason = "boot") {
     endLayoutGate(document);
     return;
   }
+  // 门控隐藏整页：不排版的页面（图片、资讯等）必须立刻放行，不能等结果容器超时
+  if (!isDesktopWebSearch(location.href)) {
+    try {
+      await lifecycle.start(document, location.href, reason);
+    } finally {
+      endLayoutGate(document);
+    }
+    return;
+  }
   // 先关门控再 dispose/boot，避免还原原生 DOM 时闪一下
   beginLayoutGate(document);
   const cancelSafety = armLayoutGateSafety(document);

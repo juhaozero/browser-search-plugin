@@ -3,7 +3,8 @@
  */
 
 const READY_ATTR = "bspReady";
-const SAFETY_MS = 4000;
+/** 门控隐藏整页，兜底不能太长，否则脚本异常时白屏过久 */
+const SAFETY_MS = 2500;
 
 /**
  * 开始门控：结果区保持隐藏，直到 endLayoutGate。
@@ -64,7 +65,7 @@ export function waitForDocumentLoad(document, timeoutMs = SAFETY_MS) {
  * @param {number} [timeoutMs]
  * @returns {Promise<boolean>} 是否已找到结果根
  */
-export function waitForResultsShell(document, timeoutMs = 2500) {
+export function waitForResultsShell(document, timeoutMs = 1500) {
   if (findResultsShell(document)) return Promise.resolve(true);
 
   return new Promise((resolve) => {
@@ -109,10 +110,11 @@ export function waitForResultsShell(document, timeoutMs = 2500) {
  */
 export function findResultsShell(document) {
   return (
-    document.getElementById("content_left")
+    document.getElementById("b_results")
     ?? document.getElementById("rso")
     ?? document.getElementById("search")
     ?? document.getElementById("center_col")
+    ?? document.getElementById("b_content")
   );
 }
 

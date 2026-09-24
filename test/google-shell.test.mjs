@@ -1,61 +1,23 @@
 import assert from "node:assert/strict";
-import { assertNoNode } from "./assert-dom.mjs";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { parseHTML } from "linkedom";
-import { alignSingleCenter, bootBaiduPage } from "../src/content-baidu.mjs";
-import { contentWidth, layoutMetrics } from "../src/content-boot.mjs";
-
-test("百度网页搜索默认单列居中", async () => {
-  const { document } = parseHTML(baiduPage("chrome 扩展"));
-  const boot = await bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome%20%E6%89%A9%E5%B1%95", {
-    viewportWidth: 1200,
-    parentLeft: 80,
-  }, { attachScroll: false, watchDom: false });
-  assert.ok(boot?.session);
-  const box = document.getElementById("bsp-results");
-  assert.equal(box.dataset.mode, "single-center");
-  assert.equal(box.style.width, "100%");
-  const expected = contentWidth("single-center", 1200);
-  const left = Math.max(32, Math.round((1200 - expected) / 2));
-  assert.equal(document.getElementById("content_left").style.width, `${expected}px`);
-  assert.equal(document.getElementById("content_left").style.marginLeft, `${left}px`);
-  // 顶栏与结果列同宽居中
-  assert.equal(document.getElementById("head").style.width, `${expected}px`);
-  assert.equal(document.getElementById("head").dataset.bspCentered, "1");
-  assert.equal(document.getElementById("page").textContent, "下一页");
-  assert.equal(box.contains(document.getElementById("rs")), false);
-  assert.deepEqual([...document.querySelectorAll("[id^='bsp-']")].map((element) => element.id), ["bsp-results"]);
-  boot.dispose();
-});
-
-test("首页、手机版和资讯页不改页面", async () => {
-  for (const url of [
-    "https://www.baidu.com/",
-    "https://m.baidu.com/s?wd=chrome",
-    "https://www.baidu.com/s?wd=chrome&tn=news",
-  ]) {
-    const { document } = parseHTML(baiduPage("chrome"));
-    assert.equal(await bootBaiduPage(document, url), null);
-    assertNoNode(document.getElementById("bsp-results"));
-    assertNoNode(document.querySelector("mark"));
-  }
-});
+import { alignSingleCenter, bootSearchPage, contentWidth, layoutMetrics } from "../src/content-boot.mjs";
 
 test("单列居中按视口把结果列放到页面中间", () => {
   const { document } = parseHTML(`
     <form id="form"></form>
-    <div id="content_left"><div id="bsp-results" data-mode="single-center"></div></div>
+    <div id="center_col"><div id="bsp-results" data-mode="single-center"></div></div>
   `);
   const box = document.getElementById("bsp-results");
   alignSingleCenter(box, 1000);
   const expected = contentWidth("single-center", 1000);
   const left = Math.max(32, Math.round((1000 - expected) / 2));
-  assert.equal(document.getElementById("content_left").style.width, `${expected}px`);
-  assert.equal(document.getElementById("content_left").style.marginLeft, `${left}px`);
+  assert.equal(document.getElementById("center_col").style.width, `${expected}px`);
+  assert.equal(document.getElementById("center_col").style.marginLeft, `${left}px`);
   assert.equal(box.style.width, "100%");
   alignSingleCenter(box, 400);
-  assert.equal(document.getElementById("content_left").style.width, `${contentWidth("single-center", 400)}px`);
+  assert.equal(document.getElementById("center_col").style.width, `${contentWidth("single-center", 400)}px`);
 });
 
 test("谷歌搜索框与结果列共用同一居中宽度", () => {
@@ -180,40 +142,6 @@ test("单列/双列壳宽与顶栏共用同一视口中线", () => {
   }
 });
 
-test("单列居中与双列下百度导航条与结果列同中线且标签居中", () => {
-  for (const mode of ["single-center", "double"]) {
-    const { document } = parseHTML(`
-      <div id="head"><form id="form"></form></div>
-      <div id="s_tab" class="s_tab">
-        <div id="s_tab_inner" class="s_tab_inner">
-          <a href="#">全部</a><a href="#">图片</a><a href="#">视频</a><a href="#">新闻</a>
-        </div>
-      </div>
-      <div id="content_left"><div id="bsp-results" data-mode="${mode}"></div></div>
-    `);
-    alignSingleCenter(document.getElementById("bsp-results"), 1400);
-    const expected = contentWidth(mode, 1400);
-    const left = Math.max(32, Math.round((1400 - expected) / 2));
-    const tab = document.getElementById("s_tab");
-    const inner = document.getElementById("s_tab_inner");
-    assert.equal(tab.dataset.bspCentered, "1");
-    assert.equal(tab.style.width, `${expected}px`);
-    assert.equal(tab.style.marginLeft, `${left}px`);
-    assert.equal(tab.style.justifyContent, "center");
-    assert.notEqual(tab.style.width, "100%");
-    assert.equal(tab.style.overflowX, "visible");
-    assert.equal(tab.dataset.bspNavScrollkill, "1");
-    assert.equal(inner.dataset.bspCentered, "1");
-    assert.equal(inner.style.justifyContent, "center");
-    assert.equal(inner.style.width, "max-content");
-    assert.ok(inner.style.marginLeft === "auto" || inner.style.marginLeft === "0" || inner.style.marginLeft === "0px");
-    assert.ok(inner.style.marginRight === "auto" || inner.style.marginRight === "0" || inner.style.marginRight === "0px");
-    assert.equal(inner.style.overflow, "visible");
-    assert.equal(tab.style.justifyContent, "center");
-    assert.equal(document.getElementById("content_left").style.marginLeft, `${left}px`);
-  }
-});
-
 test("普通单列不改导航条，保持引擎原生位置", () => {
   const { document } = parseHTML(`
     <div id="s_tab" class="s_tab">
@@ -221,7 +149,7 @@ test("普通单列不改导航条，保持引擎原生位置", () => {
         <a href="#">全部</a><a href="#">图片</a>
       </div>
     </div>
-    <div id="content_left"><div id="bsp-results" data-mode="single"></div></div>
+    <div id="center_col"><div id="bsp-results" data-mode="single"></div></div>
   `);
   alignSingleCenter(document.getElementById("bsp-results"), 1400);
   const tab = document.getElementById("s_tab");
@@ -452,7 +380,7 @@ test("列模式结果条目使用卡片样式并放开内部宽度", () => {
   assert.match(css, /#bsp-results\[data-mode="double"\][\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
   assert.match(css, /yuRUbf[\s\S]*max-width:\s*100%\s*!important/);
   assert.match(css, /padding:\s*var\(--bsp-card-pad-y\)\s+var\(--bsp-card-pad-x\)/);
-  assert.match(css, /#s_tab\[data-bsp-centered\][\s\S]*justify-content:\s*center/);
+  assert.match(css, /nav\.b_scopebar\[data-bsp-centered\][\s\S]*justify-content:\s*center/);
 });
 
 test("清单只注入搜索结果页且不申请落地页权限", () => {
@@ -461,28 +389,7 @@ test("清单只注入搜索结果页且不申请落地页权限", () => {
   assert.equal(manifest.manifest_version, 3);
   assert.deepEqual(manifest.permissions, ["storage"]);
   assert.equal(manifest.host_permissions, undefined);
-  assert.equal(manifest.content_scripts[0].matches.includes("https://www.baidu.com/s*"), true);
   assert.equal(manifest.content_scripts[0].matches.includes("https://www.google.com/search*"), true);
   assert.equal(manifest.content_scripts[0].js.includes("content.js"), true);
   assert.equal(serialized.includes("<all_urls>"), false);
 });
-
-function baiduPage(query) {
-  return `<!doctype html><html><body>
-    <div id="head">
-      <form id="form"><input id="kw" value="${query}"></form>
-    </div>
-    <div id="content_left">
-      <div class="c-container">
-        <h3><a href="https://example.com/a">${query} 下载</a></h3>
-        <div class="c-abstract">这是 ${query} 的摘要</div>
-      </div>
-      <div class="c-container">
-        <h3><a href="https://ad.example/x">广告 ${query}</a></h3>
-        <span class="ec-tuiguang">广告</span>
-      </div>
-      <div id="rs"><a href="/s?wd=related">相关搜索 ${query}</a></div>
-    </div>
-    <div id="page"><a class="n" href="/s?wd=chrome&amp;pn=10">下一页</a></div>
-  </body></html>`;
-}

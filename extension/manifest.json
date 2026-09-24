@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
-  "name": "SearchLayout",
-  "version": "0.0.1",
+  "name": "SearchLayout - 搜索结果布局",
+  "version": "0.0.2",
   "description": "把搜索结果排成更易读的单列或双列布局，并支持自动翻页。",
   "icons": {
     "16": "icons/icon-16.png",
@@ -22,7 +22,9 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.baidu.com/s*",
+        "https://www.bing.com/search*",
+        "https://cn.bing.com/search*",
+        "https://bing.com/search*",
         "https://www.google.com/search*",
         "https://google.com/search*",
         "https://*.google.com/search*",

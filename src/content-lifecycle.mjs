@@ -25,15 +25,14 @@ export function isExtensionContextValid() {
 export function searchPageKey(url) {
   try {
     const parsed = new URL(url);
-    const wd = parsed.searchParams.get("wd");
     const q = parsed.searchParams.get("q");
-    if (parsed.hostname === "www.baidu.com" && parsed.pathname === "/s" && wd != null) {
-      return `baidu:${wd}`;
-    }
     if (/google\./.test(parsed.hostname) && parsed.pathname === "/search" && q != null) {
       return `google:${parsed.hostname}:${q}`;
     }
-    return `${parsed.origin}${parsed.pathname}?${wd ?? q ?? parsed.search}`;
+    if (/(^|\.)bing\.com$/.test(parsed.hostname) && parsed.pathname === "/search" && q != null) {
+      return `bing:${parsed.hostname}:${q}`;
+    }
+    return `${parsed.origin}${parsed.pathname}?${q ?? parsed.search}`;
   } catch {
     return url;
   }

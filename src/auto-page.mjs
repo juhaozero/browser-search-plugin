@@ -30,6 +30,8 @@ export function createAutoPager(options) {
 
   let enabled = options.enabled ?? true;
   let currentUrl = options.url;
+  /** 最近接入的一页：必应的下一页地址要从它的分页链接读 */
+  let currentDocument = document;
   let busy = false;
   let stopped = false;
   let disposed = false;
@@ -84,7 +86,7 @@ export function createAutoPager(options) {
       clearTip();
       return { fetched: false, stopped: true };
     }
-    const next = nextPageUrl(currentUrl);
+    const next = nextPageUrl(currentUrl, currentDocument);
     if (!next) {
       stopped = true;
       clearTip();
@@ -105,7 +107,10 @@ export function createAutoPager(options) {
         clearTip();
         return { fetched: false };
       }
-      if (result.added > 0) currentUrl = next;
+      if (result.added > 0) {
+        currentUrl = next;
+        currentDocument = nextDocument;
+      }
       if (result.stopped || session.appendedPages >= 10) stopped = true;
       clearTip();
       return { fetched: result.added > 0, ...result };
@@ -156,7 +161,8 @@ export function createAutoPager(options) {
       const page = document.getElementById("page")
         ?? document.getElementById("pnnext")?.parentElement
         ?? document.getElementById("botstuff")
-        ?? document.getElementById("nav");
+        ?? document.getElementById("nav")
+        ?? document.querySelector("#b_results > .b_pag");
       if (page?.parentNode) page.parentNode.insertBefore(tip, page);
       else document.body.appendChild(tip);
     }
@@ -182,9 +188,9 @@ export function isNearBottom(document, metrics, nearBottomPx = NEAR_BOTTOM_PX) {
     return metrics.listBottom - (scrollY + metrics.viewportHeight) <= nearBottomPx;
   }
   const list = document.getElementById("bsp-results")
-    ?? document.getElementById("content_left")
     ?? document.getElementById("rso")
-    ?? document.getElementById("search");
+    ?? document.getElementById("search")
+    ?? document.getElementById("b_results");
   if (!list || typeof list.getBoundingClientRect !== "function") return false;
   const viewport = document.defaultView?.innerHeight ?? metrics?.viewportHeight;
   if (!viewport) return false;

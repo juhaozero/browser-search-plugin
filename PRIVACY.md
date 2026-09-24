@@ -4,7 +4,7 @@ Last updated: 2026-09-23
 
 This Privacy Policy describes how the **SearchLayout** Chrome extension (“the Extension”) handles information when you install and use it.
 
-SearchLayout helps you read Baidu and Google **desktop web search result pages** more easily by rearranging organic results into single- or dual-column layouts and optionally appending the next page of results on the same page.
+SearchLayout helps you read Google and Bing **desktop web search result pages** more easily by rearranging organic results into single- or dual-column layouts and optionally appending the next page of results on the same page.
 
 ---
 
@@ -30,7 +30,7 @@ These preferences are saved with `chrome.storage` (`sync` when available, otherw
 
 ### 2. Search result page content (processed on-device only)
 
-On matching Baidu and Google **desktop web search result pages**, the Extension’s content script may:
+On matching Google and Bing **desktop web search result pages**, the Extension’s content script may:
 
 - Read the structure of organic search result items on the page
 - Rearrange those items in the page DOM for the selected layout
@@ -56,7 +56,7 @@ The Extension does not intentionally collect or transmit to the developer:
 The Extension requests:
 
 - **`storage`** — to save and load your preferences
-- **Access to Baidu/Google desktop search result pages** (via content scripts) — only to rearrange results and optionally load the next results page in-browser
+- **Access to Google/Bing desktop search result pages** (via content scripts) — only to rearrange results and optionally load the next results page in-browser
 
 It does not request broad access such as all websites.
 
@@ -77,7 +77,7 @@ We do **not** use Extension data for advertising, creditworthiness decisions, or
 
 - We do **not** sell user data.
 - We do **not** share Extension data with third-party advertisers or data brokers.
-- The Extension interacts with Baidu/Google pages in your browser as part of normal browsing; those services are governed by their own privacy policies.
+- The Extension interacts with Google/Bing pages in your browser as part of normal browsing; those services are governed by their own privacy policies.
 - Chrome Sync (if enabled) is operated by Google and governed by Google’s privacy policy.
 
 ---
@@ -123,7 +123,7 @@ Questions about this Privacy Policy or the Extension:
 
 ## 中文摘要
 
-**SearchLayout** 是一款 Chrome 扩展，用于在百度和谷歌的桌面网页搜索结果页上调整结果布局，并可选自动翻页。
+**SearchLayout** 是一款 Chrome 扩展，用于在谷歌和必应的桌面网页搜索结果页上调整结果布局，并可选自动翻页。
 
 - **不**向开发者自有服务器上传你的搜索词、浏览历史或页面内容。
 - 偏好设置保存在 `chrome.storage`；若开启 Chrome 同步，可能随你的 Chrome 账号同步到其他设备。

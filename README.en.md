@@ -1,6 +1,6 @@
 # SearchLayout
 
-A Chrome extension that makes **Baidu and Google desktop web search results** easier to read — rearrange organic results into a single or dual column, and optionally auto-append the next page on the same screen.
+A Chrome extension that makes **Google and Bing desktop web search results** easier to read — rearrange organic results into a single or dual column, and optionally auto-append the next page on the same screen.
 
 ![Dual-column layout on Google Search](./extension/store-assets/screenshot-04-dual-column-live.png)
 
@@ -20,8 +20,8 @@ Desktop **web search result pages** only:
 
 | Engine | Matches                                                              |
 | ------ | -------------------------------------------------------------------- |
-| Baidu  | `www.baidu.com/s*`                                                   |
 | Google | `google.com` / `www.google.com` and common regional `/search*` hosts |
+| Bing   | `www.bing.com` / `cn.bing.com` `/search*`                            |
 
 Not supported: image / video / news / maps verticals, mobile pages, the search homepage, or destination sites after you click a result.
 
@@ -60,7 +60,7 @@ PRIVACY.md           # Privacy policy
 ## Permissions
 
 - `storage` — save layout and auto-page preferences
-- Content scripts inject only on Baidu / Google search result pages to rearrange results and optionally fetch the next page in-browser
+- Content scripts inject only on Google / Bing search result pages to rearrange results and optionally fetch the next page in-browser
 
 The extension does **not** upload your queries or page content to a developer server. See [PRIVACY.md](./PRIVACY.md).
 

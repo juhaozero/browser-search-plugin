@@ -1,22 +1,10 @@
 /*
- * 布局就绪前隐藏结果区与顶栏，避免原生左偏闪一下再跳到居中。
- * document_start 注入；boot 写完居中后再置 data-bsp-ready。
+ * 布局就绪前整页不可见，直接显示排版后的结果（谷歌导航网格、知识卡、分页、必应右栏等都不在固定 ID 名单里）。
+ * 用 opacity 而非 visibility：搜索框保持焦点，布局测量照常可用。
+ * document_start 注入；boot 写完布局后置 data-bsp-ready，不排版的页面立即置位，另有超时兜底。
  */
-html:not([data-bsp-ready]) #content_left,
-html:not([data-bsp-ready]) #rso,
-html:not([data-bsp-ready]) #search,
-html:not([data-bsp-ready]) #center_col,
-html:not([data-bsp-ready]) #searchform,
-html:not([data-bsp-ready]) #appbar,
-html:not([data-bsp-ready]) #slim_appbar,
-html:not([data-bsp-ready]) #sfcnt,
-html:not([data-bsp-ready]) #sf,
-html:not([data-bsp-ready]) #head,
-html:not([data-bsp-ready]) #s_tab,
-html:not([data-bsp-ready]) #hdtb,
-html:not([data-bsp-ready]) #hdtbSum,
-html:not([data-bsp-ready]) #hdtb-msb {
-  visibility: hidden !important;
+html:not([data-bsp-ready]) body {
+  opacity: 0 !important;
 }
 
 html[data-bsp-active] {
@@ -40,15 +28,41 @@ html[data-bsp-active] body {
 html[data-bsp-active] #main,
 html[data-bsp-active] #cnt,
 html[data-bsp-active] #center_col,
-html[data-bsp-active] #content_left,
 html[data-bsp-active] #rcnt,
 html[data-bsp-active] #search,
 html[data-bsp-active] #searchform,
 html[data-bsp-active] #appbar,
-html[data-bsp-active] #head,
-html[data-bsp-active] #s_tab {
+html[data-bsp-active] #b_header,
+html[data-bsp-active] #b_content,
+html[data-bsp-active] #b_mcw,
+html[data-bsp-active] #b_results,
+html[data-bsp-active] nav.b_scopebar {
   box-sizing: border-box !important;
   min-width: 0 !important;
+}
+
+/* 必应右栏（深入了解 / 知识卡）直接隐藏，主列独占壳宽 */
+html[data-bsp-active] #b_context,
+html[data-bsp-active] #b_content > aside,
+html[data-bsp-active] #b_mcw > aside {
+  display: none !important;
+}
+
+/*
+ * 必应核心容器常态保持 block：
+ *   - Bing 原生 main 是 inline-block（导致双列卡片被夹到 648px）
+ *   - 重搜索时 clearCenteredLayout 会清掉 JS 写的 display:block，
+ *     CSS 兜底确保 #b_results 在整个会话期不退回 inline-block。
+ * data-bsp-ready 在首次 boot 结束后置位，重搜索时始终存在。
+ */
+html[data-bsp-ready] #b_content > main {
+  display: block !important;
+}
+html[data-bsp-ready] #b_results {
+  display: block !important;   /* 覆盖 Bing 原生 display:inline-block */
+  width: 100% !important;      /* 覆盖 Bing 原生 width:648px（clearCenteredLayout 清掉 JS 后靠此兜底） */
+  min-width: 0 !important;
+  box-sizing: border-box !important;
 }
 
 html[data-bsp-active] #searchform[data-bsp-centered],
@@ -56,15 +70,16 @@ html[data-bsp-active] #appbar[data-bsp-centered],
 html[data-bsp-active] #slim_appbar[data-bsp-centered],
 html[data-bsp-active] #sfcnt[data-bsp-centered],
 html[data-bsp-active] #sf[data-bsp-centered],
-html[data-bsp-active] #head[data-bsp-centered],
-html[data-bsp-active] #s_tab[data-bsp-centered],
-html[data-bsp-active] #s_tab_inner[data-bsp-centered],
 html[data-bsp-active] #hdtb[data-bsp-centered],
 html[data-bsp-active] #hdtbSum[data-bsp-centered],
 html[data-bsp-active] #hdtb-msb[data-bsp-centered],
 html[data-bsp-active] #center_col[data-bsp-centered],
-html[data-bsp-active] #content_left[data-bsp-centered],
-html[data-bsp-active] #rcnt[data-bsp-centered] {
+html[data-bsp-active] #rcnt[data-bsp-centered],
+html[data-bsp-active] #b_header[data-bsp-centered],
+html[data-bsp-active] #b_tween[data-bsp-centered],
+html[data-bsp-active] #b_mcw[data-bsp-centered],
+html[data-bsp-active] #b_content[data-bsp-centered],
+html[data-bsp-active] #b_results[data-bsp-centered] {
   float: none !important;
   overflow: visible !important;
 }
@@ -75,7 +90,8 @@ html[data-bsp-active] #appbar[data-bsp-centered],
 html[data-bsp-active] #slim_appbar[data-bsp-centered],
 html[data-bsp-active] #sfcnt[data-bsp-centered],
 html[data-bsp-active] #sf[data-bsp-centered],
-html[data-bsp-active] #head[data-bsp-centered] {
+html[data-bsp-active] #b_header[data-bsp-centered],
+html[data-bsp-active] #b_tween[data-bsp-centered] {
   width: var(--bsp-shell-width) !important;
   /* 100% 相对包含块，避免 100vw 含滚动条把壳算偏 */
   max-width: min(var(--bsp-shell-width), calc(100% - 64px)) !important;
@@ -86,13 +102,12 @@ html[data-bsp-active] #head[data-bsp-centered] {
   box-sizing: border-box !important;
 }
 
-/* 百度/谷歌导航：清原生左缩进；壳内居中；禁止横向滚动条 */
-html[data-bsp-active] #s_tab[data-bsp-centered],
-html[data-bsp-active] #s_tab_inner[data-bsp-centered],
+/* 谷歌/必应导航：清原生左缩进；壳内居中；禁止横向滚动条 */
 html[data-bsp-active] #hdtb[data-bsp-centered],
 html[data-bsp-active] #hdtbSum[data-bsp-centered],
 html[data-bsp-active] #hdtb-msb[data-bsp-centered],
 html[data-bsp-active] #appbar[data-bsp-centered],
+html[data-bsp-active] nav.b_scopebar[data-bsp-centered],
 html[data-bsp-active] [data-bsp-nav-inner],
 html[data-bsp-active] [data-bsp-nav-scrollkill] {
   padding-left: 0 !important;
@@ -107,28 +122,25 @@ html[data-bsp-active] [data-bsp-nav-scrollkill] {
 
 html[data-bsp-active] [data-bsp-nav-scrollkill]::-webkit-scrollbar,
 html[data-bsp-active] [data-bsp-nav-inner]::-webkit-scrollbar,
-html[data-bsp-active] #s_tab[data-bsp-centered]::-webkit-scrollbar,
 html[data-bsp-active] #appbar[data-bsp-centered]::-webkit-scrollbar,
 html[data-bsp-active] #appbar[data-bsp-centered] *::-webkit-scrollbar,
-html[data-bsp-active] #s_tab[data-bsp-centered] *::-webkit-scrollbar {
+html[data-bsp-active] nav.b_scopebar[data-bsp-centered] *::-webkit-scrollbar {
   display: none !important;
   width: 0 !important;
   height: 0 !important;
 }
 
 /* 壳内后代默认禁止横向滚动条（下拉层仍可用 overflow:visible） */
-html[data-bsp-active] #appbar[data-bsp-centered] *,
-html[data-bsp-active] #s_tab[data-bsp-centered] * {
+html[data-bsp-active] #appbar[data-bsp-centered] * {
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
 }
 
-html[data-bsp-active] #s_tab[data-bsp-centered],
-html[data-bsp-active] #s_tab_inner[data-bsp-centered],
 html[data-bsp-active] #hdtb[data-bsp-centered],
 html[data-bsp-active] #hdtbSum[data-bsp-centered],
 html[data-bsp-active] #hdtb-msb[data-bsp-centered],
-html[data-bsp-active] #appbar[data-bsp-centered] {
+html[data-bsp-active] #appbar[data-bsp-centered],
+html[data-bsp-active] nav.b_scopebar[data-bsp-centered] {
   position: relative !important;
   display: flex !important;
   flex-direction: row !important;
@@ -139,7 +151,6 @@ html[data-bsp-active] #appbar[data-bsp-centered] {
 }
 
 /* 内层标签行缩成内容宽，才能被外层推到正中（含谷歌哈希类名容器） */
-html[data-bsp-active] #s_tab_inner[data-bsp-centered],
 html[data-bsp-active] [data-bsp-nav-inner] {
   width: max-content !important;
   max-width: 100% !important;
@@ -155,9 +166,6 @@ html[data-bsp-active] [data-bsp-nav-inner] {
   transform: none !important;
 }
 
-html[data-bsp-active] #head[data-bsp-centered] form,
-html[data-bsp-active] #head[data-bsp-centered] .s_form,
-html[data-bsp-active] #head[data-bsp-centered] .s_ipt_wr,
 html[data-bsp-active] #searchform[data-bsp-centered] form,
 html[data-bsp-active] #sfcnt[data-bsp-centered] form {
   max-width: 100% !important;
@@ -196,7 +204,11 @@ html[data-bsp-active] #sfcnt[data-bsp-centered] form {
 
 #bsp-results[data-mode="single"] > *:has(h3),
 #bsp-results[data-mode="single-center"] > *:has(h3),
-#bsp-results[data-mode="double"] > *:has(h3) {
+#bsp-results[data-mode="double"] > *:has(h3),
+#bsp-results[data-mode="single"] > li.b_algo,
+#bsp-results[data-mode="single-center"] > li.b_algo,
+#bsp-results[data-mode="double"] > li.b_algo {
+  list-style: none !important;
   box-sizing: border-box !important;
   width: 100% !important;
   max-width: 100% !important;
@@ -210,8 +222,76 @@ html[data-bsp-active] #sfcnt[data-bsp-centered] form {
   overflow: hidden;
 }
 
-#bsp-results[data-mode="double"] > *:not(:has(h3)) {
+#bsp-results[data-mode="double"] > *:not(:has(h3)):not(.b_algo) {
   display: none !important;
+}
+
+/* 必应卡片：清掉原生 float/固定高，避免窄列里标题与「翻译此结果」重叠竖排 */
+#bsp-results[data-mode] > li.b_algo {
+  display: block !important;
+  position: relative !important;
+  float: none !important;
+  clear: both !important;
+}
+
+#bsp-results[data-mode] > li.b_algo .b_tpcn,
+#bsp-results[data-mode] > li.b_algo .tilk,
+#bsp-results[data-mode] > li.b_algo .tptxt,
+#bsp-results[data-mode] > li.b_algo .tpmeta {
+  max-width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#bsp-results[data-mode] > li.b_algo .b_attribution {
+  height: auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: hidden !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+}
+
+#bsp-results[data-mode] > li.b_algo .b_attribution cite {
+  min-width: 0 !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+/* 窄卡片里会挤成单字竖排，直接隐藏 */
+#bsp-results[data-mode] > li.b_algo .b_tranthis {
+  display: none !important;
+}
+
+#bsp-results[data-mode] > li.b_algo h2,
+#bsp-results[data-mode] > li.b_algo .b_caption {
+  position: static !important;
+  float: none !important;
+  clear: both !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* 结果内双列深链：原生 ul 固定 ~300px float，双列卡片里会溢出重叠 */
+#bsp-results[data-mode] > li.b_algo .b_vlist2col,
+#bsp-results[data-mode] > li.b_algo .b_vlist2col > ul {
+  float: none !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  box-sizing: border-box !important;
+}
+
+#bsp-results[data-mode] > li.b_algo .b_inline_ajax_rs li {
+  width: 100% !important;
+  max-width: 100% !important;
+  display: block !important;
+  margin-right: 0 !important;
 }
 
 #bsp-results[data-mode="single"] .g,
@@ -240,10 +320,29 @@ html[data-bsp-active] #sfcnt[data-bsp-centered] form {
 #bsp-results[data-mode="double"] .IsZvec,
 #bsp-results[data-mode="double"] .VwiC3b,
 #bsp-results[data-mode="double"] .N54PNb,
-#bsp-results[data-mode="double"] .c-abstract {
+#bsp-results[data-mode="double"] .c-abstract,
+#bsp-results[data-mode] .b_caption,
+#bsp-results[data-mode] .b_caption p,
+#bsp-results[data-mode] .b_lineclamp1,
+#bsp-results[data-mode] .b_lineclamp2,
+#bsp-results[data-mode] .b_lineclamp3,
+#bsp-results[data-mode] .b_lineclamp4,
+#bsp-results[data-mode] .b_algoheader {
   max-width: 100% !important;
   min-width: 0 !important;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
+}
+
+/* 必应结果根是 ol：用 li 宿主包 #bsp-results，避免非法 div 子节点 */
+#b_results > li[data-bsp-results-host] {
+  list-style: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  float: none !important;
+  clear: both !important;
 }
 
 #bsp-status {

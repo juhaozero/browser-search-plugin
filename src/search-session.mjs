@@ -1,29 +1,30 @@
 const PAGE_SIZE = 10;
 const MAX_APPENDED_PAGES = 10;
 
-const VERTICAL_BAIDU_TN = new Set(["news", "video", "image"]);
-
 /**
  * @param {string} url
  */
 export function isDesktopWebSearch(url) {
   const parsed = readUrl(url);
   if (!parsed) return false;
-  if (isBaiduWeb(parsed)) return true;
   if (isGoogleWeb(parsed)) return true;
+  if (isBingWeb(parsed)) return true;
   return false;
 }
 
 /**
  * @param {string} url
+ * @param {Document} [document] 当前已加载的一页；必应每页条数不固定，只能读它的「下一页」链接
  * @returns {string | null}
  */
-export function nextPageUrl(url) {
+export function nextPageUrl(url, document) {
   const parsed = readUrl(url);
   if (!parsed || !isDesktopWebSearch(url)) return null;
-  if (isBaiduWeb(parsed)) {
-    const pn = Number(parsed.searchParams.get("pn") || "0");
-    parsed.searchParams.set("pn", String(pn + PAGE_SIZE));
+  if (isBingWeb(parsed)) {
+    const href = document?.querySelector("a.sb_pagN[href]")?.getAttribute("href");
+    if (href) return new URL(href, parsed).toString();
+    const first = Number(parsed.searchParams.get("first") || "1");
+    parsed.searchParams.set("first", String(first + PAGE_SIZE));
     return parsed.toString();
   }
   if (isGoogleWeb(parsed)) {
@@ -136,12 +137,15 @@ export function createSearchSession(document, url, prefs) {
         else item.remove();
         origins.delete(item);
       }
+      const host = box.parentElement?.hasAttribute("data-bsp-results-host")
+        ? box.parentElement
+        : null;
       box.remove();
+      host?.remove();
     }
-    // 清掉遗留的 bsp-origin 注释，防止 SPA 反复 boot 堆积（只扫结果容器，不扫整页）
     if (root) scrubOriginComments(root);
     else {
-      for (const id of ["content_left", "rso", "search", "center_col"]) {
+      for (const id of ["rso", "search", "center_col", "b_results"]) {
         const el = document.getElementById(id);
         if (el) scrubOriginComments(el);
       }
@@ -188,7 +192,21 @@ export function createSearchSession(document, url, prefs) {
     if (existing) return existing;
     const box = document.createElement("div");
     box.id = "bsp-results";
-    root.insertBefore(box, root.firstChild);
+    // 必应结果根是 ol：不能直接塞 div，用 li 宿主包一层，避免浏览器「修正」DOM
+    if (root.tagName === "OL" || root.tagName === "UL") {
+      const host = document.createElement("li");
+      host.setAttribute("data-bsp-results-host", "1");
+      host.style.setProperty("list-style", "none", "important");
+      host.style.setProperty("margin", "0", "important");
+      host.style.setProperty("padding", "0", "important");
+      host.style.setProperty("display", "block", "important");
+      host.style.setProperty("width", "100%", "important");
+      host.style.setProperty("max-width", "100%", "important");
+      host.appendChild(box);
+      root.insertBefore(host, root.firstChild);
+    } else {
+      root.insertBefore(box, root.firstChild);
+    }
     return box;
   }
 
@@ -210,23 +228,10 @@ export function createSearchSession(document, url, prefs) {
 function detectEngine(url) {
   const parsed = readUrl(url);
   if (!parsed) return null;
-  if (isBaiduWeb(parsed)) return baiduEngine;
   if (isGoogleWeb(parsed)) return googleEngine;
+  if (isBingWeb(parsed)) return bingEngine;
   return null;
 }
-
-const baiduEngine = {
-  name: "baidu",
-  resultsRoot(document) {
-    return document.getElementById("content_left");
-  },
-  organicItems(root) {
-    return [...root.querySelectorAll("#bsp-results > .c-container, #content_left > .c-container")].filter(isBaiduOrganic);
-  },
-  itemHref(item) {
-    return item.querySelector("h3 a")?.getAttribute("href") ?? "";
-  },
-};
 
 const googleEngine = {
   name: "google",
@@ -234,12 +239,10 @@ const googleEngine = {
     return document.getElementById("rso") ?? document.getElementById("search");
   },
   organicItems(root) {
-    // 现代谷歌常无 .g，结果块是 .tF2Cxc；旧版仍可能是 .g
     return [...root.querySelectorAll(
       "#bsp-results > .g, #bsp-results > .tF2Cxc, #rso .g, #rso .tF2Cxc",
     )].filter((element) => {
       if (!isGoogleOrganic(element)) return false;
-      // 避免嵌套重复（如 .g 内再套 .g / .tF2Cxc）
       if (element.parentElement?.closest(".g, .tF2Cxc")) return false;
       return true;
     });
@@ -251,13 +254,34 @@ const googleEngine = {
   },
 };
 
+const bingEngine = {
+  name: "bing",
+  resultsRoot(document) {
+    return document.getElementById("b_results");
+  },
+  organicItems(root) {
+    return [...root.querySelectorAll("#bsp-results > li.b_algo, #b_results > li.b_algo")].filter(isBingOrganic);
+  },
+  itemHref(item) {
+    return bingTargetUrl(item.querySelector("h2 a[href]")?.getAttribute("href") ?? "");
+  },
+};
+
 /**
- * @param {Element} element
+ * 必应结果链接是 /ck/a 跳转，追踪参数每页都变；u=a1<base64url> 才是真实地址，用它去重。
+ * @param {string} href
  */
-function isBaiduOrganic(element) {
-  return element.classList.contains("c-container")
-    && element.querySelector(".ec-tuiguang") === null
-    && element.querySelector("h3 a[href]") !== null;
+function bingTargetUrl(href) {
+  if (!href) return "";
+  try {
+    const parsed = new URL(href, "https://www.bing.com");
+    const encoded = parsed.pathname === "/ck/a" ? parsed.searchParams.get("u") : null;
+    if (!encoded?.startsWith("a1")) return href;
+    const base64 = encoded.slice(2).replace(/-/g, "+").replace(/_/g, "/");
+    return atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, "="));
+  } catch {
+    return href;
+  }
 }
 
 /**
@@ -274,28 +298,34 @@ function isGoogleOrganic(element) {
 }
 
 /**
- * @param {URL} url
+ * @param {Element} element
  */
-function isBaiduWeb(url) {
-  if (url.hostname !== "www.baidu.com") return false;
-  if (url.pathname !== "/s") return false;
-  if (!url.searchParams.get("wd")) return false;
-  const tn = url.searchParams.get("tn");
-  if (tn && VERTICAL_BAIDU_TN.has(tn)) return false;
-  return true;
+function isBingOrganic(element) {
+  if (element.closest(".b_ad, .b_adTop, .b_adBottom")) return false;
+  if (element.querySelector(".b_adSlug, .b_adProvider")) return false;
+  return element.querySelector("h2 a[href]") !== null;
 }
 
 /**
  * @param {URL} url
  */
 function isGoogleWeb(url) {
-  if (!/^(www\.)?google\.(com|co\.[a-z]{2}|com\.[a-z]{2}|[a-z]{2})$/.test(url.hostname)) return false;
+  if (!/^(www\.)?google\.(com|co\.[a-z]{2}|com\.[a-z]{2}|[a-z]{2})$/i.test(url.hostname)) return false;
   if (url.pathname !== "/search") return false;
   if (!url.searchParams.get("q")) return false;
   if (url.searchParams.has("tbm")) return false;
   const udm = url.searchParams.get("udm");
   if (udm && udm !== "14") return false;
   return true;
+}
+
+/**
+ * @param {URL} url
+ */
+function isBingWeb(url) {
+  if (!/^(www\.|cn\.)?bing\.com$/.test(url.hostname)) return false;
+  if (url.pathname !== "/search") return false;
+  return Boolean(url.searchParams.get("q"));
 }
 
 /**
