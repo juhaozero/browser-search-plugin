@@ -10,15 +10,15 @@ import {
   normalizePrefs,
 } from "../src/preferences.mjs";
 import { mountPopup, readForm } from "../src/popup.mjs";
+import { assertNoNode } from "./assert-dom.mjs";
 
-test("默认偏好是单列居中、高亮关、自动翻页开", () => {
+test("默认偏好是单列居中、自动翻页开", () => {
   assert.deepEqual(normalizePrefs({}), DEFAULT_PREFS);
   assert.deepEqual(DEFAULT_PREFS, {
     columnMode: "single-center",
-    highlight: false,
     autoPage: true,
   });
-  assert.equal(normalizePrefs({ highlight: true }).highlight, false);
+  assert.equal("highlight" in normalizePrefs({ highlight: true }), false);
 });
 
 test("同步存储失败时退回本机保存并读回", async () => {
@@ -50,9 +50,9 @@ test("同步存储失败时退回本机保存并读回", async () => {
   assert.equal(saved.columnMode, "double");
   assert.deepEqual(await store.load(), {
     columnMode: "double",
-    highlight: false,
     autoPage: true,
   });
+  assert.equal("highlight" in saved, false);
 });
 
 test("弹窗改偏好后已打开结果页马上重排并尊重开关", async () => {
@@ -66,26 +66,27 @@ test("弹窗改偏好后已打开结果页马上重排并尊重开关", async ()
   );
   assert.equal(document.getElementById("bsp-results").dataset.mode, "single-center");
 
-  await store.save({ columnMode: "double", highlight: false, autoPage: false });
+  await store.save({ columnMode: "double", autoPage: false });
   assert.equal(document.getElementById("bsp-results").dataset.mode, "double");
-  assert.equal(document.querySelector("mark.bsp-hl"), null);
   assert.equal(boot.pager.enabled, false);
 
-  await store.save({ columnMode: "original", highlight: false, autoPage: true });
-  assert.equal(document.getElementById("bsp-results"), null);
-  assert.equal(document.querySelector("mark.bsp-hl"), null);
+  await store.save({ columnMode: "original", autoPage: true });
+  assertNoNode(document.getElementById("bsp-results"));
   assert.equal(boot.pager.enabled, true);
+  boot.dispose();
 });
 
 test("百度和谷歌共用同一套偏好", async () => {
-  const store = createMemoryPrefsStore({ columnMode: "single", highlight: false, autoPage: true });
+  const store = createMemoryPrefsStore({ columnMode: "single", autoPage: true });
   const baidu = parseHTML(baiduPage("chrome")).document;
   const google = parseHTML(googlePage("chrome")).document;
-  await bootSearchPage(baidu, "https://www.baidu.com/s?wd=chrome", {}, { prefsStore: store, attachScroll: false, watchDom: false });
-  await bootSearchPage(google, "https://www.google.com/search?q=chrome", {}, { prefsStore: store, attachScroll: false, watchDom: false });
-  await store.save({ columnMode: "double", highlight: false, autoPage: true });
+  const baiduBoot = await bootSearchPage(baidu, "https://www.baidu.com/s?wd=chrome", {}, { prefsStore: store, attachScroll: false, watchDom: false });
+  const googleBoot = await bootSearchPage(google, "https://www.google.com/search?q=chrome", {}, { prefsStore: store, attachScroll: false, watchDom: false });
+  await store.save({ columnMode: "double", autoPage: true });
   assert.equal(baidu.getElementById("bsp-results").dataset.mode, "double");
   assert.equal(google.getElementById("bsp-results").dataset.mode, "double");
+  baiduBoot.dispose();
+  googleBoot.dispose();
 });
 
 test("弹窗可四选一列模式并开关自动翻页，没有高亮和页数设置", async () => {
@@ -94,9 +95,9 @@ test("弹窗可四选一列模式并开关自动翻页，没有高亮和页数�
   const popup = await mountPopup(document, { prefsStore: store });
   assert.equal(document.querySelector("input[name='columnMode'][value='single-center']").checked, true);
   assert.equal(document.querySelector("input[name='autoPage']").checked, true);
-  assert.equal(document.querySelector("input[name='highlight']"), null);
+  assertNoNode(document.querySelector("input[name='highlight']"));
   assert.equal(document.body.textContent.includes("页数"), false);
-  assert.equal(document.querySelector("input[name='maxPages']"), null);
+  assertNoNode(document.querySelector("input[name='maxPages']"));
 
   for (const input of document.querySelectorAll("input[name='columnMode']")) {
     input.checked = input.value === "double";
@@ -105,12 +106,10 @@ test("弹窗可四选一列模式并开关自动翻页，没有高亮和页数�
   await popup.commit();
   assert.deepEqual(await store.load(), {
     columnMode: "double",
-    highlight: false,
     autoPage: false,
   });
   assert.deepEqual(readForm(document), {
     columnMode: "double",
-    highlight: false,
     autoPage: false,
   });
 });

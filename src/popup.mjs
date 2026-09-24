@@ -40,15 +40,13 @@ export async function mountPopup(document, deps = {}) {
 
 /**
  * @param {Document} document
- * @param {{ columnMode: string, highlight: boolean, autoPage: boolean }} prefs
+ * @param {{ columnMode: string, autoPage: boolean }} prefs
  */
 export function paint(document, prefs) {
   const normalized = normalizePrefs(prefs);
   for (const input of document.querySelectorAll("input[name='columnMode']")) {
     input.checked = input.value === normalized.columnMode;
   }
-  const highlight = document.querySelector("input[name='highlight']");
-  if (highlight) highlight.checked = normalized.highlight;
   const autoPage = document.querySelector("input[name='autoPage']");
   if (autoPage) autoPage.checked = normalized.autoPage;
 }
@@ -58,11 +56,9 @@ export function paint(document, prefs) {
  */
 export function readForm(document) {
   const column = [...document.querySelectorAll("input[name='columnMode']")].find((input) => input.checked);
-  const highlight = document.querySelector("input[name='highlight']");
   const autoPage = document.querySelector("input[name='autoPage']");
   return normalizePrefs({
     columnMode: column?.value ?? DEFAULT_PREFS.columnMode,
-    highlight: Boolean(highlight?.checked),
     autoPage: Boolean(autoPage?.checked),
   });
 }

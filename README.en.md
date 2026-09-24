@@ -12,7 +12,7 @@ A Chrome extension that makes **Baidu and Google desktop web search results** ea
 - **Auto-page**: When you scroll near the bottom, the next page of organic results is appended on the same page
 - **Instant preferences**: Change settings from the toolbar popup; stored in `chrome.storage` and can sync with your Chrome account
 
-Defaults: single-center layout + auto-page on. Highlight is currently off.
+Defaults: single-center layout + auto-page on.
 
 ## Scope
 

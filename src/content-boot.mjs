@@ -25,13 +25,19 @@ const CENTERED_STYLE_PROPS = [
   "margin-right",
   "padding-left",
   "padding-right",
+  "padding-inline-start",
+  "margin-inline-start",
   "float",
   "left",
   "right",
   "transform",
   "display",
   "flex-direction",
+  "flex-wrap",
+  "justify-content",
   "align-items",
+  "align-self",
+  "text-align",
   "gap",
   "flex",
   "flex-shrink",
@@ -41,6 +47,8 @@ const CENTERED_STYLE_PROPS = [
   "top",
   "bottom",
   "grid-template-columns",
+  "grid-column",
+  "justify-self",
 ];
 
 const ASIDE_IDS = ["rhs", "content_right"];
@@ -49,6 +57,8 @@ const RELAYOUT_FLAG = "bspRelayout";
 const DOM_MUTE_FLAG = "bspDomMute";
 
 const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "content_left"];
+/** 顶栏/导航晚到时也要触发 realign（结果区 observer 看不到） */
+const NAV_WATCH_IDS = ["appbar", "slim_appbar", "hdtb", "s_tab", "head"];
 /** 现代谷歌导航标签的稳定标记（jsname 在多次改版中保持不变） */
 const NAV_TAB_JSNAME = "pxBnId";
 /** 导航标签文本兜底：只在已知导航容器内匹配，避免误伤正文里同名的链接 */
@@ -59,14 +69,18 @@ const NAV_TAB_LABELS = new Set([
 /** 导航带最大高度：超过说明上爬过头，命中的是整页容器而非单行导航 */
 const NAV_BAND_MAX_HEIGHT = 96;
 /** 上爬禁止越过的整页容器 */
-const NAV_BAND_STOP_IDS = new Set(["cnt", "main", "rcnt", "center_col", "search", "gsr", "content_left"]);
+const NAV_BAND_STOP_IDS = new Set([
+  "cnt", "main", "rcnt", "center_col", "search", "gsr", "content_left",
+  // 已由 placeHeader 定壳的顶栏：导航带停在其内部，拉满宿主即可与搜索栏对齐
+  "appbar", "slim_appbar", "searchform", "sfcnt", "sf", "head",
+]);
 
 /**
  * @param {Document} document
  * @param {string} url
  * @param {{ viewportWidth?: number, parentLeft?: number }} [layout]
  * @param {{
- *   prefs?: { columnMode?: string, highlight?: boolean, autoPage?: boolean },
+ *   prefs?: { columnMode?: string, autoPage?: boolean },
  *   prefsStore?: { load: () => Promise<object>, save?: Function, subscribe?: Function },
  *   fetchDocument?: (url: string) => Promise<Document>,
  *   attachScroll?: boolean,
@@ -218,12 +232,13 @@ export function alignResultsBox(box, viewportWidth) {
 
   const metrics = layoutMetrics(document, mode, viewportWidth);
   const root = document.documentElement;
-  // 壳宽/模式未变时跳过清样式重排，避免 MutationObserver 触发时顶栏闪跳
+  // 壳宽/模式未变时跳过整页清样式，但仍刷新顶栏+导航（谷歌搜索框/标签常晚到或被原生改写）
   if (
     root.dataset.bspShellWidth === String(metrics.shellWidth)
     && root.dataset.bspColumnMode === mode
     && document.querySelector("[data-bsp-centered]")
   ) {
+    refreshChromeLayout(document, metrics);
     return;
   }
 
@@ -308,11 +323,13 @@ function applyShellLayout(document, box, metrics) {
   const rcnt = document.getElementById("rcnt");
 
   neutralizePageLeftBias(document);
+  // 祖先拉满视口，否则子级 margin:auto 只在偏窄/偏左的包含块里「居中」，视觉上就会偏右
+  expandLayoutRoots(document);
 
   /** @type {Set<HTMLElement>} */
   const placed = new Set();
   if (metrics.hasAside && rcnt && metrics.aside && metrics.asideInShell) {
-    alignBandToTarget(rcnt, metrics.shellWidth, metrics.targetLeft);
+    placeAtViewportCenter(rcnt, metrics.shellWidth, metrics.targetLeft);
     placed.add(rcnt);
     rcnt.style.setProperty("display", "flex", "important");
     rcnt.style.setProperty("flex-direction", "row", "important");
@@ -344,24 +361,27 @@ function applyShellLayout(document, box, metrics) {
       stampCentered(rcnt);
       rcnt.style.setProperty("display", "block", "important");
       rcnt.style.setProperty("grid-template-columns", "none", "important");
+      rcnt.style.setProperty("width", "100%", "important");
+      rcnt.style.setProperty("max-width", "100%", "important");
+      rcnt.style.setProperty("margin-left", "0", "important");
+      rcnt.style.setProperty("margin-right", "0", "important");
     }
-    placeShellOnce(column, metrics.shellWidth, metrics.targetLeft, placed);
-    if (isBlockParent(column)) {
-      // 普通块父级下交给 auto margin：浏览器在真实包含块（已扣滚动条）内居中，比手算 delta 准
-      column.style.setProperty("left", "auto", "important");
-      column.style.setProperty("margin-left", "auto", "important");
-      column.style.setProperty("margin-right", "auto", "important");
-    }
+    placeAtViewportCenter(column, metrics.shellWidth, metrics.targetLeft);
+    placed.add(column);
   }
 
-  // 顶栏用 margin:auto 稳态居中（不用 left 像素追结果列，避免显示后反复跳动）
+  // 搜索框 / 顶栏 / 导航 / 结果列：统一用同一 targetLeft，保证落在视口正中间
   for (const el of collectHeaderBands(document)) {
-    placeBandOnce(el, metrics.shellWidth, metrics.targetLeft, placed);
+    if (!el || placed.has(el)) continue;
+    if ([...placed].some((other) => other.contains(el) || el.contains(other))) continue;
+    placeAtViewportCenter(el, metrics.shellWidth, metrics.targetLeft);
+    placed.add(el);
   }
   placeNavBands(document, metrics.shellWidth, metrics.targetLeft, placed);
+  sanitizeNavChrome(document);
 
-  box.style.width = "100%";
-  box.style.maxWidth = "100%";
+  box.style.setProperty("width", "100%", "important");
+  box.style.setProperty("max-width", "100%", "important");
   box.style.minWidth = "0";
   box.style.marginLeft = "0";
   box.style.marginRight = "0";
@@ -397,6 +417,98 @@ function neutralizePageLeftBias(document) {
 }
 
 /**
+ * 把整页骨架拉满视口，避免在偏左的窄包含块里「居中」导致整体偏右。
+ * @param {Document} document
+ */
+function expandLayoutRoots(document) {
+  for (const id of ["main", "cnt", "rcnt"]) {
+    const el = document.getElementById(id);
+    if (!el) continue;
+    stampCentered(el);
+    el.style.setProperty("width", "100%", "important");
+    el.style.setProperty("max-width", "100%", "important");
+    el.style.setProperty("min-width", "0", "important");
+    el.style.setProperty("margin-left", "0", "important");
+    el.style.setProperty("margin-right", "0", "important");
+    el.style.setProperty("padding-left", "0", "important");
+    el.style.setProperty("padding-right", "0", "important");
+    el.style.setProperty("box-sizing", "border-box", "important");
+  }
+}
+
+/**
+ * 按视口正中落位：定宽后用 margin-left = targetLeft，左右边距对称。
+ * 不用 margin:auto（会被窄父级/谷歌残留布局带偏）。
+ * @param {HTMLElement} el
+ * @param {number} widthPx
+ * @param {number} targetLeft
+ */
+function placeAtViewportCenter(el, widthPx, targetLeft) {
+  stampCentered(el);
+  const maxW = `min(${widthPx}px, calc(100% - ${SIDE_GAP * 2}px))`;
+  el.style.setProperty("position", "relative", "important");
+  el.style.setProperty("top", "0", "important");
+  el.style.setProperty("bottom", "auto", "important");
+  el.style.setProperty("left", "auto", "important");
+  el.style.setProperty("right", "auto", "important");
+  el.style.setProperty("width", `${widthPx}px`, "important");
+  el.style.setProperty("max-width", maxW, "important");
+  el.style.setProperty("min-width", "0", "important");
+  el.style.setProperty("padding-left", "0", "important");
+  el.style.setProperty("padding-right", "0", "important");
+  el.style.setProperty("margin-left", `${Math.max(0, targetLeft)}px`, "important");
+  el.style.setProperty("margin-right", "auto", "important");
+  el.style.setProperty("box-sizing", "border-box", "important");
+  el.style.setProperty("float", "none", "important");
+  el.style.setProperty("transform", "none", "important");
+  el.style.setProperty("overflow", "visible", "important");
+  el.style.setProperty("align-self", "center", "important");
+  // 谷歌把导航放在网格第 2 列起（logo 列之后）：不跨满整行，margin 会叠在 logo 列宽上
+  if (isGridItem(el)) {
+    el.style.setProperty("grid-column", "1 / -1", "important");
+    el.style.setProperty("justify-self", "start", "important");
+  }
+  correctLeftResidual(el, targetLeft);
+  el.dataset.bspPlaced = placedSignature(el, widthPx, targetLeft);
+}
+
+/**
+ * 落位签名：含补偿后的 margin-left，谷歌改回原生样式时签名对不上就会重排。
+ * @param {HTMLElement} el
+ * @param {number} widthPx
+ * @param {number} targetLeft
+ */
+function placedSignature(el, widthPx, targetLeft) {
+  return `${widthPx}:${targetLeft}:${el.style.width}:${el.style.marginLeft}:${el.style.left}`;
+}
+
+/**
+ * @param {HTMLElement} el
+ */
+function isGridItem(el) {
+  const parent = el.parentElement;
+  const view = el.ownerDocument?.defaultView;
+  if (!parent || typeof view?.getComputedStyle !== "function") return false;
+  const display = view.getComputedStyle(parent).display;
+  return display === "grid" || display === "inline-grid";
+}
+
+/**
+ * 包含块左缘不在视口 0 处（网格列、带偏移的祖先）时，按实测补回 margin-left 残差。
+ * 无布局引擎（linkedom）几何为 0 时跳过。
+ * @param {HTMLElement} el
+ * @param {number} targetLeft
+ */
+function correctLeftResidual(el, targetLeft) {
+  const rect = rectOf(el);
+  if (!(rect.width > 0)) return;
+  const residual = Math.round(targetLeft - rect.left);
+  if (Math.abs(residual) < 1) return;
+  const current = Number.parseFloat(el.style.marginLeft) || 0;
+  el.style.setProperty("margin-left", `${current + residual}px`, "important");
+}
+
+/**
  * @param {Document} document
  */
 function collectHeaderBands(document) {
@@ -417,9 +529,8 @@ function collectHeaderBands(document) {
 }
 
 /**
- * 强制把导航条放到与结果列相同的壳宽/左缘。
- * 谷歌 #hdtb 常为 position:sticky，用 left 定位无效，必须改 relative 再按视口位移。
- * 现代谷歌的 #hdtb 是 0 高空壳，真实标签行在哈希类名容器里，需按内容定位。
+ * 强制把导航条对齐到与搜索栏相同的壳宽/左缘（仅 single-center / double）。
+ * 现代谷歌真实标签常在哈希容器里，且带多层左缩进；必须跟搜索栏实测锚点，并清路径缩进。
  * @param {Document} document
  * @param {number} widthPx
  * @param {number} targetLeft
@@ -428,10 +539,12 @@ function collectHeaderBands(document) {
 function placeNavBands(document, widthPx, targetLeft, placed) {
   /** @type {HTMLElement[]} */
   const aligned = [];
+  const anchor = resolveSearchShellAnchor(document, widthPx, targetLeft, placed);
+
   /** @type {HTMLElement[]} */
   const candidates = [];
   const push = (el) => {
-    if (!el || !(el instanceof HTMLElement) || candidates.includes(el)) return;
+    if (!el || !isElement(el) || candidates.includes(el)) return;
     if (!isNavBandVisible(el)) return;
     candidates.push(el);
   };
@@ -442,32 +555,565 @@ function placeNavBands(document, widthPx, targetLeft, placed) {
   push(document.querySelector("#hdtb, #hdtbSum"));
   push(document.querySelector("#hdtb-msb"));
 
-  // 只处理最外层，避免 hdtb 与 hdtb-msb 双重偏移
   const roots = candidates.filter((el) => !candidates.some((other) => other !== el && other.contains(el)));
   for (const el of roots) {
-    alignBandToTarget(el, widthPx, targetLeft);
+    placeAtViewportCenter(el, anchor.width, anchor.left);
+    prepareNavBand(el);
     placed.add(el);
     aligned.push(el);
   }
 
-  // 兜底：按标签内容找到真实导航带，只做水平校正（不动宽度，避免破坏其网格列宽）
   const band = findNavTabBand(document);
   if (!band) return aligned;
-  if (roots.some((el) => el === band || el.contains(band))) return aligned;
-  if ([...placed].some((el) => el !== band && (el.contains(band) || band.contains(el)))) return aligned;
-  shiftNavBand(band, targetLeft);
+
+  // 取「最近」的已落位祖先（不能用 find 第一个：外层 searchform 在部分 DOM 里也会 contains）
+  let host = null;
+  for (const el of placed) {
+    if (el === band || !el.contains(band)) continue;
+    if (!host || host.contains(el)) host = el;
+  }
+  if (host) {
+    // 已在搜索壳/顶栏内部：拉满宿主宽度，与搜索栏左右缘一致，再居中标签
+    expandNavBandToHost(band, host);
+    prepareNavBand(band);
+    return aligned;
+  }
+  if (roots.some((el) => el === band || el.contains(band))) {
+    prepareNavBand(band);
+    return aligned;
+  }
+  if ([...placed].some((el) => el !== band && band.contains(el))) {
+    prepareNavBand(band);
+    return aligned;
+  }
+
+  placeAtViewportCenter(band, anchor.width, anchor.left);
+  prepareNavBand(band);
   placed.add(band);
   aligned.push(band);
   return aligned;
 }
 
 /**
+ * 壳已稳态时重放顶栏（搜索壳）+ 导航。
+ * 只定外壳宽/左缘，不改写壳内 form/input，避免触发谷歌搜索框清空查询词。
+ * @param {Document} document
+ * @param {ReturnType<typeof layoutMetrics>} metrics
+ */
+function refreshChromeLayout(document, metrics) {
+  /** @type {Set<HTMLElement>} */
+  const placed = new Set();
+  for (const el of collectHeaderBands(document)) {
+    if (!el) continue;
+    // 已按当前壳宽落位则跳过，减少对搜索框 DOM 的样式抖动
+    if (
+      el.dataset.bspCentered === "1"
+      && el.dataset.bspPlaced === placedSignature(el, metrics.shellWidth, metrics.targetLeft)
+    ) {
+      placed.add(el);
+      continue;
+    }
+    placeAtViewportCenter(el, metrics.shellWidth, metrics.targetLeft);
+    placed.add(el);
+  }
+  for (const id of ["center_col", "content_left", "rcnt"]) {
+    const el = document.getElementById(id);
+    if (el?.dataset?.bspCentered === "1") placed.add(el);
+  }
+  placeNavBands(document, metrics.shellWidth, metrics.targetLeft, placed);
+  sanitizeNavChrome(document);
+}
+
+/** @deprecated 兼容旧调用名 */
+function refreshNavLayout(document, metrics) {
+  refreshChromeLayout(document, metrics);
+}
+
+/**
+ * 导航收尾：标签组钉在红框（壳）正中，消灭横向滚动条。
+ * 谷歌左侧 logo 槽常是「非空」兄弟节点（有 svg/占位），只藏 empty spacer 不够。
+ * @param {Document} document
+ */
+function sanitizeNavChrome(document) {
+  const row = findDocumentNavRow(document);
+  if (!row) {
+    for (const id of ["s_tab", "s_tab_inner", "hdtb", "hdtb-msb", "appbar"]) {
+      const el = document.getElementById(id);
+      if (el) killNavOverflow(el);
+    }
+    return;
+  }
+
+  const shell = findNavShellHost(row);
+
+  /** @type {HTMLElement[]} */
+  const chain = [];
+  for (let node = row; node && isElement(node); node = node.parentElement) {
+    chain.push(node);
+    if (node === shell) break;
+    if (!shell && (NAV_BAND_STOP_IDS.has(node.id) || node.id === "appbar" || node.id === "s_tab")) break;
+  }
+
+  for (const node of chain) {
+    killNavOverflow(node);
+    node.style.setProperty("padding-left", "0", "important");
+    node.style.setProperty("padding-inline-start", "0", "important");
+    node.style.setProperty("padding-right", "0", "important");
+    node.style.setProperty("transform", "none", "important");
+    node.style.setProperty("float", "none", "important");
+    // 压缩左侧 gutter（含非空占位）+ 空 spacer
+    collapseNavBiasSiblings(node, row);
+
+    const isShell = shell ? node === shell : isPlacedNavShell(node);
+    if (isShell) {
+      node.style.setProperty("display", "flex", "important");
+      node.style.setProperty("flex-direction", "row", "important");
+      node.style.setProperty("flex-wrap", "nowrap", "important");
+      node.style.setProperty("justify-content", "center", "important");
+      node.style.setProperty("align-items", "center", "important");
+      node.style.setProperty("text-align", "center", "important");
+      continue;
+    }
+
+    node.style.setProperty("margin-left", "0", "important");
+    node.style.setProperty("margin-inline-start", "0", "important");
+    if (node === row) {
+      shrinkNavInner(node);
+      node.style.setProperty("width", "max-content", "important");
+      node.style.setProperty("max-width", "100%", "important");
+      node.style.setProperty("flex", "0 0 auto", "important");
+      node.style.setProperty("margin-left", "0", "important");
+      node.style.setProperty("margin-right", "0", "important");
+      node.style.setProperty("position", "relative", "important");
+      node.style.setProperty("left", "0", "important");
+    } else {
+      node.style.setProperty("display", "flex", "important");
+      node.style.setProperty("flex-direction", "row", "important");
+      node.style.setProperty("flex-wrap", "nowrap", "important");
+      node.style.setProperty("justify-content", "center", "important");
+      node.style.setProperty("align-items", "center", "important");
+      node.style.setProperty("width", "100%", "important");
+      node.style.setProperty("max-width", "100%", "important");
+      node.style.setProperty("box-sizing", "border-box", "important");
+      node.style.setProperty("text-align", "center", "important");
+      node.style.setProperty("left", "auto", "important");
+    }
+  }
+
+  // 标签行内部也可能还有一层左缩进 scroller
+  clearNavDescendantBias(row);
+  if (shell) killNavOverflowTree(shell);
+  else killNavOverflowTree(row);
+}
+
+/**
+ * 会把芯片顶偏的兄弟：标签行之前的压掉；之后的空 spacer 压掉，
+ * 之后的真按钮（如「工具」）贴到右端、脱离居中流，否则整组居中会偏左、标签也会压到它。
+ * @param {HTMLElement} parent
+ * @param {HTMLElement} row
+ */
+function collapseNavBiasSiblings(parent, row) {
+  const children = [...parent.children].filter(isElement);
+  const rowIndex = children.indexOf(row);
+  // row 可能是孙级：找到包含 row 的直接子级
+  let anchorIndex = rowIndex;
+  if (anchorIndex < 0) {
+    anchorIndex = children.findIndex((child) => child.contains(row));
+  }
+  if (anchorIndex < 0) {
+    hideEmptyNavSpacers(parent, row);
+    return;
+  }
+
+  for (let i = 0; i < children.length; i += 1) {
+    const child = children[i];
+    if (child === row || row.contains(child) || child.contains(row)) continue;
+    const beforeRow = i < anchorIndex;
+    if (!beforeRow && !isEmptyNavSpacer(child)) {
+      // 仅标签行的直接父级：更高层的尾随兄弟可能是「工具」展开面板
+      if (rowIndex >= 0) anchorNavTrailing(parent, child);
+      continue;
+    }
+    stampCentered(child);
+    child.dataset.bspNavSpacer = "1";
+    child.style.setProperty("display", "none", "important");
+  }
+}
+
+/**
+ * @param {HTMLElement} parent
+ * @param {HTMLElement} child
+ */
+function anchorNavTrailing(parent, child) {
+  stampCentered(parent);
+  parent.style.setProperty("position", "relative", "important");
+  stampCentered(child);
+  child.dataset.bspNavTrailing = "1";
+  child.style.setProperty("position", "absolute", "important");
+  child.style.setProperty("right", "0", "important");
+  child.style.setProperty("top", "0", "important");
+  child.style.setProperty("bottom", "0", "important");
+  child.style.setProperty("left", "auto", "important");
+  child.style.setProperty("margin-left", "0", "important");
+  child.style.setProperty("display", "flex", "important");
+  child.style.setProperty("align-items", "center", "important");
+}
+
+/**
+ * 标签行内部清左缩进与横向滚动（谷歌常在 LCA 内再包一层 scroller）。
+ * @param {HTMLElement} row
+ */
+function clearNavDescendantBias(row) {
+  for (const child of row.querySelectorAll("*")) {
+    if (!isElement(child)) continue;
+    child.style.setProperty("padding-left", "0", "important");
+    child.style.setProperty("padding-inline-start", "0", "important");
+    const inline = child.getAttribute?.("style") ?? "";
+    const scrolled = typeof child.scrollWidth === "number"
+      && typeof child.clientWidth === "number"
+      && child.clientWidth > 0
+      && child.scrollWidth > child.clientWidth + 8;
+    if (scrolled || child.scrollLeft > 0 || /overflow-x\s*:\s*(auto|scroll)/i.test(inline)) {
+      killNavOverflow(child);
+      child.style.setProperty("margin-left", "0", "important");
+      child.style.setProperty("margin-inline-start", "0", "important");
+    }
+  }
+}
+
+/**
+ * 壳内所有出现横向溢出的节点关掉滚动条。
+ * @param {HTMLElement} root
+ */
+function killNavOverflowTree(root) {
+  killNavOverflow(root);
+  for (const el of root.querySelectorAll("*")) {
+    if (!isElement(el)) continue;
+    if (typeof el.scrollWidth === "number"
+      && typeof el.clientWidth === "number"
+      && el.clientWidth > 0
+      && el.scrollWidth > el.clientWidth + 4) {
+      killNavOverflow(el);
+      continue;
+    }
+    const inline = el.getAttribute?.("style") ?? "";
+    if (/overflow-x\s*:\s*(auto|scroll)/i.test(inline)) killNavOverflow(el);
+  }
+}
+
+/**
+ * 已按壳宽落位的顶栏宿主（#appbar / #s_tab 等）。
+ * @param {HTMLElement} from
+ * @returns {HTMLElement | null}
+ */
+function findNavShellHost(from) {
+  for (let node = from; node && isElement(node); node = node.parentElement) {
+    if (isPlacedNavShell(node)) return node;
+    if (node.id === "appbar" || node.id === "slim_appbar" || node.id === "s_tab") return node;
+  }
+  return null;
+}
+
+/**
+ * @param {HTMLElement} el
+ */
+function isPlacedNavShell(el) {
+  if (el.dataset.bspCentered !== "1") return false;
+  const w = el.style.width;
+  return Boolean(w) && w !== "100%" && w !== "auto" && w !== "max-content";
+}
+
+/**
+ * 藏起会把标签顶偏的空占位（含 flex-grow 空白条）。
+ * @param {HTMLElement} parent
+ * @param {HTMLElement} keep
+ */
+function hideEmptyNavSpacers(parent, keep) {
+  for (const child of parent.children) {
+    if (!isElement(child) || child === keep || keep.contains(child)) continue;
+    if (!isEmptyNavSpacer(child)) continue;
+    stampCentered(child);
+    child.dataset.bspNavSpacer = "1";
+    child.style.setProperty("display", "none", "important");
+  }
+}
+
+/**
+ * 强制关掉导航链上的横向滚动（谷歌芯片行常带 overflow-x:auto）。
+ * @param {HTMLElement} el
+ */
+function killNavOverflow(el) {
+  stampCentered(el);
+  el.dataset.bspNavScrollkill = "1";
+  el.style.setProperty("overflow", "visible", "important");
+  el.style.setProperty("overflow-x", "visible", "important");
+  el.style.setProperty("overflow-y", "visible", "important");
+  el.style.setProperty("scrollbar-width", "none", "important");
+  if (typeof el.scrollLeft === "number" && el.scrollLeft !== 0) el.scrollLeft = 0;
+}
+
+/** @deprecated 旧名保留 */
+function syncNavRowToSearchCenter(document) {
+  sanitizeNavChrome(document);
+}
+
+/**
+ * 整页范围内找主导航标签行（芯片行），排除「工具」等第二行，避免 LCA 过大无法缩宽居中。
+ * @param {Document} document
+ * @returns {HTMLElement | null}
+ */
+function findDocumentNavRow(document) {
+  const links = collectPrimaryNavTabLinks(document);
+  if (links.length < 2) return null;
+  let row = links[0];
+  for (const link of links) {
+    while (row && !row.contains(link)) row = row.parentElement;
+    if (!row) return null;
+  }
+  return isElement(row) ? row : null;
+}
+
+/** 第二行工具类文案：不能并入主芯片行 LCA */
+const NAV_SECONDARY_LABELS = new Set(["工具", "Tools", "工具箱"]);
+
+/**
+ * 主芯片行链接：优先 jsname；有几何时只取同一水平带；排除工具行。
+ * @param {Document} document
+ * @returns {HTMLElement[]}
+ */
+function collectPrimaryNavTabLinks(document) {
+  const all = collectNavTabLinks(document).filter((el) => {
+    const label = (el.textContent ?? "").trim();
+    return !NAV_SECONDARY_LABELS.has(label);
+  });
+  if (all.length < 2) return all;
+
+  // 有真实几何时：取数量最多的同一 top 带（主芯片行）
+  /** @type {Map<number, HTMLElement[]>} */
+  const bands = new Map();
+  for (const el of all) {
+    const top = Math.round(rectOf(el).top);
+    if (!bands.has(top)) bands.set(top, []);
+    bands.get(top)?.push(el);
+  }
+  let best = all;
+  for (const group of bands.values()) {
+    if (group.length > best.length) best = group;
+  }
+  return best.length >= 2 ? best : all;
+}
+
+/**
+ * 优先用已落位搜索栏的实测宽/左缘，保证导航与搜索栏同一条中线。
+ * @param {Document} document
+ * @param {number} widthPx
+ * @param {number} targetLeft
+ * @param {Set<HTMLElement>} placed
+ */
+function resolveSearchShellAnchor(document, widthPx, targetLeft, placed) {
+  for (const id of ["searchform", "sfcnt", "sf", "head"]) {
+    const el = document.getElementById(id);
+    if (!el || !placed.has(el)) continue;
+    const rect = rectOf(el);
+    if (rect.width >= 120) {
+      return { width: Math.round(rect.width), left: Math.round(rect.left) };
+    }
+    // 测试 DOM 无几何：用已写入的 style
+    const styleW = Number.parseFloat(el.style.width);
+    const styleL = Number.parseFloat(el.style.marginLeft);
+    if (Number.isFinite(styleW) && styleW >= 120) {
+      return {
+        width: Math.round(styleW),
+        left: Number.isFinite(styleL) ? Math.round(styleL) : targetLeft,
+      };
+    }
+  }
+  return { width: widthPx, left: targetLeft };
+}
+
+/**
+ * @param {HTMLElement} band
+ * @param {HTMLElement} host
+ */
+function expandNavBandToHost(band, host) {
+  stampCentered(band);
+  band.style.setProperty("position", "relative", "important");
+  band.style.setProperty("width", "100%", "important");
+  band.style.setProperty("max-width", "100%", "important");
+  band.style.setProperty("min-width", "0", "important");
+  band.style.setProperty("margin-left", "0px", "important");
+  band.style.setProperty("margin-right", "0px", "important");
+  band.style.setProperty("padding-left", "0px", "important");
+  band.style.setProperty("padding-inline-start", "0px", "important");
+  band.style.setProperty("left", "auto", "important");
+  band.style.setProperty("right", "auto", "important");
+  band.style.setProperty("float", "none", "important");
+  band.style.setProperty("transform", "none", "important");
+  band.style.setProperty("box-sizing", "border-box", "important");
+  // 宿主到 band 整条链清左缩进，避免夹在中间的哈希层把标签顶右。
+  // 已定壳宽的顶栏本身（host）绝不能改成 100%/margin0。
+  let node = band.parentElement;
+  while (node && isElement(node) && host.contains(node) && node !== host) {
+    node.style.setProperty("padding-left", "0", "important");
+    node.style.setProperty("padding-inline-start", "0", "important");
+    node.style.setProperty("margin-left", "0", "important");
+    node.style.setProperty("margin-inline-start", "0", "important");
+    node.style.setProperty("width", "100%", "important");
+    node.style.setProperty("max-width", "100%", "important");
+    node = node.parentElement;
+  }
+}
+
+/**
+ * @param {HTMLElement} el
+ */
+function prepareNavBand(el) {
+  clearNavInlineBias(el);
+  clearNavPathBias(el);
+  centerNavContent(el);
+}
+
+/**
+ * 从标签链接向上清到导航壳：谷歌常把 padding-left 写在中间哈希层。
+ * 壳自身的 margin-left 由 placeAtViewportCenter 写入，不能清掉。
+ * @param {HTMLElement} band
+ */
+function clearNavPathBias(band) {
+  const links = collectNavTabLinks(band.ownerDocument).filter((link) => band.contains(link));
+  const starts = links.length > 0 ? links : [band];
+  for (const start of starts) {
+    let node = start;
+    while (node && isElement(node)) {
+      node.style.setProperty("padding-left", "0", "important");
+      node.style.setProperty("padding-inline-start", "0", "important");
+      if (node !== band) {
+        node.style.setProperty("margin-left", "0", "important");
+        node.style.setProperty("margin-inline-start", "0", "important");
+      }
+      if (node === band) break;
+      node = node.parentElement;
+    }
+  }
+}
+
+/**
  * 导航带是否真的有可见内容（现代谷歌 #hdtb 是 0 高空壳，写样式没有意义）。
+ * 无布局引擎（如 linkedom）时几何为 0：仍允许已知百度导航根落位。
  * @param {HTMLElement} el
  */
 function isNavBandVisible(el) {
   const rect = rectOf(el);
-  return rect.height >= 8 && rect.width >= 120;
+  if (rect.height >= 8 && rect.width >= 120) return true;
+  if (el.id === "s_tab" || el.classList?.contains("s_tab")) {
+    return typeof el.getBoundingClientRect !== "function"
+      || (rect.width === 0 && rect.height === 0);
+  }
+  return false;
+}
+
+/**
+ * 导航标签在壳内水平居中（与搜索栏同壳后，标签组落在壳正中）。
+ * @param {HTMLElement} el
+ */
+function centerNavContent(el) {
+  stampCentered(el);
+  clearNavInlineBias(el);
+  applyNavFlexCenter(el);
+
+  for (const child of el.children) {
+    if (!isElement(child)) continue;
+    const isKnownInner = child.id === "s_tab_inner"
+      || child.classList.contains("s_tab_inner")
+      || child.id === "hdtb-msb";
+    if (isKnownInner) shrinkNavInner(child);
+  }
+
+  const row = findNavTabRowIn(el);
+  if (!row || row === el) return;
+
+  shrinkNavInner(row);
+  row.style.setProperty("overflow", "visible", "important");
+  row.style.setProperty("transform", "none", "important");
+  // 仅压缩「无文本、无链接」的空占位
+  const parent = row.parentElement;
+  if (!parent || !isElement(parent)) return;
+  applyNavFlexCenter(parent);
+  parent.style.setProperty("overflow", "visible", "important");
+  parent.style.setProperty("overflow-x", "visible", "important");
+  // 父级若就是导航壳（已 placeAtViewportCenter 定宽），不能改成 100% 盖掉壳宽
+  if (parent !== el) {
+    parent.style.setProperty("width", "100%", "important");
+    parent.style.setProperty("max-width", "100%", "important");
+  }
+  parent.style.setProperty("padding-left", "0", "important");
+  parent.style.setProperty("justify-content", "center", "important");
+  if (typeof parent.scrollLeft === "number") parent.scrollLeft = 0;
+  for (const sibling of parent.children) {
+    if (!isElement(sibling) || sibling === row) continue;
+    if (!isEmptyNavSpacer(sibling)) continue;
+    stampCentered(sibling);
+    sibling.dataset.bspNavSpacer = "1";
+    sibling.style.setProperty("display", "none", "important");
+  }
+}
+
+/**
+ * 标签链接的最紧公共祖先。
+ * @param {HTMLElement} scope
+ * @returns {HTMLElement | null}
+ */
+function findNavTabRowIn(scope) {
+  const links = collectPrimaryNavTabLinks(scope.ownerDocument).filter((link) => scope.contains(link));
+  if (links.length < 2) return null;
+  let row = links[0];
+  for (const link of links) {
+    while (row && !row.contains(link)) row = row.parentElement;
+    if (!row) return null;
+  }
+  return row && scope.contains(row) ? row : null;
+}
+
+/**
+ * 真正的空占位：无可见文案、无 a/button。含「全部/新闻…」的节点绝不能匹配。
+ * @param {HTMLElement} el
+ */
+function isEmptyNavSpacer(el) {
+  if (el.getAttribute?.("aria-hidden") === "true") return true;
+  const text = (el.textContent ?? "").replace(/\s+/g, " ").trim();
+  if (text.length > 0) return false;
+  if (el.querySelector("a, button, [role='button'], [role='link']")) return false;
+  return true;
+}
+
+/**
+ * @param {HTMLElement} el
+ */
+function applyNavFlexCenter(el) {
+  el.style.setProperty("display", "flex", "important");
+  el.style.setProperty("flex-direction", "row", "important");
+  el.style.setProperty("flex-wrap", "nowrap", "important");
+  el.style.setProperty("justify-content", "center", "important");
+  el.style.setProperty("align-items", "center", "important");
+  el.style.setProperty("text-align", "center", "important");
+}
+
+/**
+ * 内层标签行缩成内容宽，才能被外层 flex 推到壳正中。
+ * @param {HTMLElement} el
+ */
+function shrinkNavInner(el) {
+  stampCentered(el);
+  el.dataset.bspNavInner = "1";
+  applyNavFlexCenter(el);
+  el.style.setProperty("width", "max-content", "important");
+  el.style.setProperty("max-width", "100%", "important");
+  el.style.setProperty("flex", "0 0 auto", "important");
+  el.style.setProperty("margin-left", "auto", "important");
+  el.style.setProperty("margin-right", "auto", "important");
+  el.style.setProperty("float", "none", "important");
+  el.style.setProperty("overflow", "visible", "important");
+  el.style.setProperty("left", "auto", "important");
+  el.style.setProperty("transform", "none", "important");
 }
 
 /**
@@ -510,20 +1156,26 @@ function collectNavTabLinks(document) {
   /** @type {HTMLElement[]} */
   const tagged = [];
   for (const el of document.querySelectorAll(`a[jsname="${NAV_TAB_JSNAME}"]`)) {
-    if (el instanceof HTMLElement && isVisibleLink(el) && !isOwnDomElement(el)) tagged.push(el);
+    if (el && isElement(el) && !isOwnDomElement(el)) tagged.push(el);
   }
+  const visibleTagged = tagged.filter(isVisibleLink);
+  if (visibleTagged.length >= 2) return visibleTagged;
+  // 首屏几何常为 0：仍用 jsname 集合，避免导航永远不居中
   if (tagged.length >= 2) return tagged;
 
-  // 兜底：只在已知导航容器内按文本匹配
+  // 兜底：顶栏/导航容器内按文案匹配（现代谷歌不在 #hdtb 里）
   /** @type {HTMLElement[]} */
   const fallback = [];
-  for (const el of document.querySelectorAll("#hdtb a, #s_tab a, .s_tab a")) {
-    if (!(el instanceof HTMLElement)) continue;
+  for (const el of document.querySelectorAll(
+    "#hdtb a, #s_tab a, .s_tab a, #appbar a, #head a, [role='navigation'] a",
+  )) {
+    if (!isElement(el)) continue;
     if (!NAV_TAB_LABELS.has((el.textContent ?? "").trim())) continue;
-    if (!isVisibleLink(el) || isOwnDomElement(el)) continue;
+    if (isOwnDomElement(el)) continue;
     fallback.push(el);
   }
-  return fallback;
+  const visibleFallback = fallback.filter(isVisibleLink);
+  return visibleFallback.length >= 2 ? visibleFallback : fallback;
 }
 
 /**
@@ -546,49 +1198,53 @@ function rectOf(el) {
 }
 
 /**
- * 头部/导航稳态居中：定壳宽 + margin:auto，不写 left 像素。
- * 像素追赶（settleLeft）会在结果列回流后反复改位，是顶栏「每次跳一下」的主因。
- * @param {HTMLElement} el
- * @param {number} widthPx
- * @param {number} [_targetLeft] 保留参数以兼容旧调用方
+ * Node 环境（linkedom）可能没有全局 HTMLElement，用 nodeType 判断元素节点。
+ * @param {unknown} node
+ * @returns {node is HTMLElement}
  */
-function alignBandToTarget(el, widthPx, _targetLeft) {
-  stampCentered(el);
-  const maxW = `min(${widthPx}px, calc(100vw - ${SIDE_GAP * 2}px))`;
-  el.style.setProperty("position", "relative", "important");
-  el.style.setProperty("top", "0", "important");
-  el.style.setProperty("bottom", "auto", "important");
-  el.style.setProperty("left", "auto", "important");
-  el.style.setProperty("right", "auto", "important");
-  el.style.setProperty("width", `${widthPx}px`, "important");
-  el.style.setProperty("max-width", maxW, "important");
-  el.style.setProperty("min-width", "0", "important");
-  el.style.setProperty("padding-left", "0", "important");
-  el.style.setProperty("padding-right", "0", "important");
-  el.style.setProperty("margin-left", "auto", "important");
-  el.style.setProperty("margin-right", "auto", "important");
-  el.style.setProperty("box-sizing", "border-box", "important");
-  el.style.setProperty("float", "none", "important");
-  el.style.setProperty("transform", "none", "important");
-  el.style.setProperty("overflow", "visible", "important");
+function isElement(node) {
+  return Boolean(node && typeof node === "object" && /** @type {{ nodeType?: number }} */ (node).nodeType === 1);
 }
 
 /**
- * 导航带水平居中：保持自身布局，只用 auto margin 贴到视口中间。
+ * 清掉导航带及其一层子级上的原生左缩进（谷歌常把 padding 写在内层）。
+ * 根节点的 margin-left 由 placeAtViewportCenter 写入，这里不能清掉。
  * @param {HTMLElement} el
- * @param {number} [_targetLeft]
  */
-function shiftNavBand(el, _targetLeft) {
-  stampCentered(el);
-  el.style.setProperty("position", "relative", "important");
-  el.style.setProperty("top", "0", "important");
-  el.style.setProperty("bottom", "auto", "important");
-  el.style.setProperty("left", "auto", "important");
-  el.style.setProperty("right", "auto", "important");
-  el.style.setProperty("margin-left", "auto", "important");
-  el.style.setProperty("margin-right", "auto", "important");
-  el.style.setProperty("float", "none", "important");
-  el.style.setProperty("transform", "none", "important");
+function clearNavInlineBias(el) {
+  const clearPadding = (node) => {
+    node.style.setProperty("padding-left", "0", "important");
+    node.style.setProperty("padding-right", "0", "important");
+    node.style.setProperty("padding-inline-start", "0", "important");
+  };
+  const clearChildBias = (node) => {
+    clearPadding(node);
+    node.style.setProperty("margin-left", "0", "important");
+    node.style.setProperty("margin-inline-start", "0", "important");
+  };
+  clearPadding(el);
+  for (const child of el.children) {
+    if (isElement(child)) clearChildBias(child);
+  }
+}
+
+/**
+ * 头部/导航定宽：保留给旧调用方；真正居中统一走 placeAtViewportCenter。
+ * @param {HTMLElement} el
+ * @param {number} widthPx
+ * @param {number} [targetLeft]
+ */
+function alignBandToTarget(el, widthPx, targetLeft = 0) {
+  placeAtViewportCenter(el, widthPx, targetLeft);
+}
+
+/**
+ * @param {HTMLElement} el
+ * @param {number} targetLeft
+ */
+function shiftNavBand(el, targetLeft) {
+  clearNavInlineBias(el);
+  settleLeft(el, targetLeft);
 }
 
 /**
@@ -774,6 +1430,11 @@ function clearCenteredLayout(document) {
       el.style.removeProperty(prop);
     }
     delete el.dataset.bspCentered;
+    delete el.dataset.bspPlaced;
+    delete el.dataset.bspNavTrailing;
+    delete el.dataset.bspNavInner;
+    delete el.dataset.bspNavSpacer;
+    delete el.dataset.bspNavScrollkill;
   }
   const root = document.documentElement;
   root.style.removeProperty("--bsp-shell-width");
@@ -881,14 +1542,28 @@ export function watchResults(document, onChange) {
     }, 120);
   };
 
+  /** @type {MutationObserver[]} */
+  const observers = [];
+
   const attach = (root) => {
-    observer = new MutationObserver(onMutations);
-    observer.observe(root, { childList: true, subtree: true });
+    const obs = new MutationObserver(onMutations);
+    obs.observe(root, { childList: true, subtree: true });
+    observers.push(obs);
+    observer = obs;
+  };
+
+  const attachNavWatches = (except) => {
+    for (const id of NAV_WATCH_IDS) {
+      const el = document.getElementById(id);
+      if (!el || el === except) continue;
+      attach(el);
+    }
   };
 
   const root = resolveResultsWatchRoot(document);
   if (root) {
     attach(root);
+    attachNavWatches(root);
   } else {
     // 结果容器晚到时用有界轮询挂载，避免对 body 开 subtree 观察（易 OOM）
     findTimer = (globalThis.setInterval ?? setInterval)(() => {
@@ -897,6 +1572,7 @@ export function watchResults(document, onChange) {
       if (found) {
         clearFindTimer();
         attach(found);
+        attachNavWatches(found);
         onChange();
         return;
       }
@@ -917,7 +1593,7 @@ export function watchResults(document, onChange) {
       try {
         return fn();
       } finally {
-        observer?.takeRecords?.();
+        for (const obs of observers) obs.takeRecords?.();
         clearTimer();
         muteDepth -= 1;
         if (muteDepth === 0) delete document.documentElement.dataset[DOM_MUTE_FLAG];
@@ -925,7 +1601,14 @@ export function watchResults(document, onChange) {
     },
     dispose() {
       clearFindTimer();
-      observer?.disconnect();
+      for (const obs of observers) {
+        try {
+          obs.disconnect();
+        } catch {
+          // ignore
+        }
+      }
+      observers.length = 0;
       observer = null;
       clearTimer();
       muteDepth = 0;
@@ -968,7 +1651,6 @@ function isOwnDomNode(node) {
 function isOwnDomElement(el) {
   if (!el) return false;
   if (el.id?.startsWith("bsp-")) return true;
-  if (el.classList?.contains?.("bsp-hl")) return true;
   if (typeof el.closest === "function") {
     if (el.closest("#bsp-results, #bsp-status, .bsp-site-search-wrap")) return true;
   }
@@ -1009,7 +1691,6 @@ function markActive(document, engine) {
 function normalizeBootPrefs(prefs) {
   return {
     columnMode: prefs.columnMode ?? DEFAULT_PREFS.columnMode,
-    highlight: false,
     autoPage: prefs.autoPage ?? DEFAULT_PREFS.autoPage,
   };
 }
@@ -1103,7 +1784,7 @@ function isBlockParent(el) {
 function hasVisibleSibling(container, column) {
   for (const child of container.children) {
     if (child === column) continue;
-    if (!(child instanceof HTMLElement)) continue;
+    if (!isElement(child)) continue;
     if (!isDisplayed(child)) continue;
     if (rectOf(child).width >= 80) return true;
   }

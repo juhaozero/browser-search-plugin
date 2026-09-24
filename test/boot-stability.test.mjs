@@ -53,7 +53,7 @@ test("replaceState 加追踪参数不应 dispose 掉已激活的 boot", async ()
       return bootSearchPage(doc, url, { viewportWidth: 1200 }, {
         attachScroll: false,
         watchDom: false,
-        prefs: { columnMode: "single-center", highlight: false, autoPage: false },
+        prefs: { columnMode: "single-center", autoPage: false },
       });
     },
   });
@@ -75,6 +75,7 @@ test("replaceState 加追踪参数不应 dispose 掉已激活的 boot", async ()
   assert.ok(lifecycle.getActive());
   assert.ok(document.getElementById("bsp-results"), "结果盒应仍在");
   assert.equal(document.getElementById("bsp-results").children.length, 2);
+  lifecycle.disposeAll();
 });
 
 test("并发同查询 boot 风暴后最终仍应保留结果盒", async () => {
@@ -88,7 +89,7 @@ test("并发同查询 boot 风暴后最终仍应保留结果盒", async () => {
       return bootSearchPage(doc, url, { viewportWidth: 1200 }, {
         attachScroll: false,
         watchDom: false,
-        prefs: { columnMode: "double", highlight: false, autoPage: false },
+        prefs: { columnMode: "double", autoPage: false },
       });
     },
   });
@@ -105,4 +106,5 @@ test("并发同查询 boot 风暴后最终仍应保留结果盒", async () => {
   assert.ok(lifecycle.getActive(), "应有激活实例");
   assert.ok(box, "应有结果盒");
   assert.equal(box.dataset.mode, "double");
+  lifecycle.disposeAll();
 });

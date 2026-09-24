@@ -4,12 +4,12 @@ import { parseHTML } from "linkedom";
 import { createAutoPager, isNearBottom } from "../src/auto-page.mjs";
 import { bootBaiduPage } from "../src/content-baidu.mjs";
 import { createSearchSession } from "../src/search-session.mjs";
+import { assertNoNode } from "./assert-dom.mjs";
 
-test("滚到结果列表底部附近会取下一页并沿用列模式与高亮", async () => {
+test("滚到结果列表底部附近会取下一页并沿用列模式", async () => {
   const { document } = parseHTML(baiduPage("chrome"));
   const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
     columnMode: "single-center",
-    highlight: true,
     autoPage: true,
   });
   const fetches = [];
@@ -30,7 +30,6 @@ test("滚到结果列表底部附近会取下一页并沿用列模式与高亮",
   const box = document.getElementById("bsp-results");
   assert.equal(box.dataset.mode, "single-center");
   assert.ok(box.querySelector("a[href='https://example.com/p1']"));
-  assert.ok(box.querySelector("h3 mark.bsp-hl"));
   assert.equal(document.getElementById("page").textContent, "下一页");
   assert.equal(document.getElementById("bsp-status").hidden, true);
 });
@@ -39,7 +38,6 @@ test("取页过程中底部显示加载中", async () => {
   const { document } = parseHTML(baiduPage("chrome"));
   const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
     columnMode: "original",
-    highlight: false,
     autoPage: true,
   });
   /** @type {(value: Document) => void} */
@@ -64,7 +62,6 @@ test("取页时显示加载中，失败时短暂显示加载失败且不自动�
   const { document } = parseHTML(baiduPage("chrome"));
   const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
     columnMode: "original",
-    highlight: false,
     autoPage: true,
   });
   let shouldFail = true;
@@ -92,7 +89,7 @@ test("取页时显示加载中，失败时短暂显示加载失败且不自动�
   assert.equal(failed.failed, true);
   assert.equal(document.getElementById("bsp-status").textContent, "加载失败");
   assert.equal(document.getElementById("bsp-status").hidden, false);
-  assert.equal(document.querySelector("a[href='https://example.com/p1']"), null);
+  assertNoNode(document.querySelector("a[href='https://example.com/p1']"));
   assert.equal(scheduled.length, 1);
 
   const again = await pager.check(near);
@@ -114,7 +111,6 @@ test("只关会话自动翻页时不再取页，也不会被当成没有更多�
   const { document } = parseHTML(baiduPage("chrome"));
   const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
     columnMode: "original",
-    highlight: false,
     autoPage: true,
   });
   let calls = 0;
@@ -141,7 +137,6 @@ test("没有新结果或接满 10 页后停止，且重复链接不再接入", a
   const { document } = parseHTML(baiduPage("chrome"));
   const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
     columnMode: "single",
-    highlight: false,
     autoPage: true,
   });
   let page = 0;
@@ -166,7 +161,6 @@ test("没有新结果或接满 10 页后停止，且重复链接不再接入", a
   const freshDoc = parseHTML(baiduPage("chrome")).document;
   const freshSession = createSearchSession(freshDoc, "https://www.baidu.com/s?wd=chrome", {
     columnMode: "single",
-    highlight: false,
     autoPage: true,
   });
   let n = 0;
@@ -190,7 +184,6 @@ test("自动翻页关掉时滚动不再取下一页", async () => {
   const { document } = parseHTML(baiduPage("chrome"));
   const session = createSearchSession(document, "https://www.baidu.com/s?wd=chrome", {
     columnMode: "original",
-    highlight: false,
     autoPage: false,
   });
   let calls = 0;
@@ -227,8 +220,14 @@ test("靠近底部的判定看结果列表底边", () => {
 
 test("百度启动默认打开自动翻页", async () => {
   const { document } = parseHTML(baiduPage("chrome"));
-  const boot = await bootBaiduPage(document, "https://www.baidu.com/s?wd=chrome", {}, { attachScroll: false });
+  const boot = await bootBaiduPage(
+    document,
+    "https://www.baidu.com/s?wd=chrome",
+    {},
+    { attachScroll: false, watchDom: false },
+  );
   assert.equal(boot.pager.enabled, true);
+  boot.dispose();
 });
 
 function baiduPage(query) {

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --test",
+    "test": "node --max-old-space-size=4096 --test --test-isolation=none --test-concurrency=1 ./test/baidu-auto-page.test.mjs ./test/baidu-shell.test.mjs ./test/boot-stability.test.mjs ./test/google-parity.test.mjs ./test/layout-gate.test.mjs ./test/preferences-popup.test.mjs ./test/search-session.test.mjs",
     "build": "node scripts/build.mjs"
   },
   "repository": {

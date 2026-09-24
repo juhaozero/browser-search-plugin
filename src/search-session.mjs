@@ -15,13 +15,6 @@ export function isDesktopWebSearch(url) {
 }
 
 /**
- * @param {string} query
- */
-export function highlightSegments(query) {
-  return query.split(/[\s\p{P}]+/u).filter((part) => part.length > 0);
-}
-
-/**
  * @param {string} url
  * @returns {string | null}
  */
@@ -44,23 +37,20 @@ export function nextPageUrl(url) {
 /**
  * @param {Document} document
  * @param {string} url
- * @param {{ columnMode?: string, highlight?: boolean, autoPage?: boolean }} prefs
+ * @param {{ columnMode?: string, autoPage?: boolean }} prefs
  */
 export function createSearchSession(document, url, prefs) {
   const engine = detectEngine(url);
   if (!engine) throw new Error("不是桌面版网页搜索");
   const state = {
     columnMode: prefs.columnMode ?? "single-center",
-    highlight: prefs.highlight ?? true,
     autoPage: prefs.autoPage ?? true,
   };
-  const segments = highlightSegments(queryFromUrl(url));
   /** @type {WeakMap<Element, Comment>} */
   const origins = new WeakMap();
   let appendedPages = 0;
 
   layout();
-  paint();
 
   return {
     get appendedPages() {
@@ -84,20 +74,16 @@ export function createSearchSession(document, url, prefs) {
       if (!dest) return { added: 0, stopped: true };
       for (const item of fresh) dest.appendChild(document.importNode(item, true));
       appendedPages += 1;
-      paint();
       return { added: fresh.length, stopped: false };
     },
     apply(next) {
       if (next.columnMode) state.columnMode = next.columnMode;
-      if (typeof next.highlight === "boolean") state.highlight = next.highlight;
       if (typeof next.autoPage === "boolean") state.autoPage = next.autoPage;
       layout();
-      paint();
     },
-    /** 引擎 DOM 有新结果时重新收纳并绘制，不改偏好 */
+    /** 引擎 DOM 有新结果时重新收纳，不改偏好 */
     refresh() {
       layout();
-      paint();
     },
     /** 还原原生结果 DOM，避免 SPA 反复 boot 时 #bsp-results 与 origin 注释堆积 */
     dispose() {
@@ -213,31 +199,6 @@ export function createSearchSession(document, url, prefs) {
     origins.set(item, placeholder);
   }
 
-  function paint() {
-    for (const item of listOrganic(document)) {
-      const title = engine.titleNode(item);
-      const abstract = engine.abstractNode(item);
-      if (state.highlight) {
-        paintNode(title);
-        paintNode(abstract);
-      } else {
-        // 仅在仍有高亮标记时清理，避免每次 refresh 无意义改写 textContent
-        if (title?.querySelector?.("mark.bsp-hl")) clearNode(title);
-        if (abstract?.querySelector?.("mark.bsp-hl")) clearNode(abstract);
-      }
-    }
-  }
-
-  function paintNode(node) {
-    if (!node) return;
-    node.innerHTML = highlightHtml(node.textContent ?? "", segments);
-  }
-
-  function clearNode(node) {
-    if (!node) return;
-    node.textContent = node.textContent;
-  }
-
   function listOrganic(root) {
     return engine.organicItems(root);
   }
@@ -262,12 +223,6 @@ const baiduEngine = {
   organicItems(root) {
     return [...root.querySelectorAll("#bsp-results > .c-container, #content_left > .c-container")].filter(isBaiduOrganic);
   },
-  titleNode(item) {
-    return item.querySelector("h3 a");
-  },
-  abstractNode(item) {
-    return item.querySelector(".c-abstract");
-  },
   itemHref(item) {
     return item.querySelector("h3 a")?.getAttribute("href") ?? "";
   },
@@ -288,14 +243,6 @@ const googleEngine = {
       if (element.parentElement?.closest(".g, .tF2Cxc")) return false;
       return true;
     });
-  },
-  titleNode(item) {
-    const heading = item.querySelector("h3");
-    if (!heading) return null;
-    return heading.querySelector("a") ?? heading;
-  },
-  abstractNode(item) {
-    return item.querySelector(".VwiC3b, .IsZvec, .aCOpRe");
   },
   itemHref(item) {
     const heading = item.querySelector("h3");
@@ -324,66 +271,6 @@ function isGoogleOrganic(element) {
   if (element.querySelector(".related-question-pair")) return false;
   if (!element.querySelector("h3") || !element.querySelector("a[href]")) return false;
   return true;
-}
-
-/**
- * @param {string} text
- * @param {string[]} segments
- */
-function highlightHtml(text, segments) {
-  if (segments.length === 0) return escapeHtml(text);
-  const pattern = new RegExp(`(${segments.map(escapeRegExp).join("|")})`, "gi");
-  let html = "";
-  let cursor = 0;
-  for (const match of text.matchAll(pattern)) {
-    const index = match.index ?? 0;
-    const slot = segmentSlot(match[0], segments);
-    html += escapeHtml(text.slice(cursor, index));
-    html += `<mark class="bsp-hl" data-bsp-seg="${slot}" style="background-color: ${segmentColor(slot)}">${escapeHtml(match[0])}</mark>`;
-    cursor = index + match[0].length;
-  }
-  html += escapeHtml(text.slice(cursor));
-  return html;
-}
-
-function segmentSlot(matched, segments) {
-  const exact = segments.indexOf(matched);
-  if (exact >= 0) return exact;
-  const folded = matched.toLowerCase();
-  const insensitive = segments.findIndex((segment) => segment.toLowerCase() === folded);
-  return insensitive >= 0 ? insensitive : 0;
-}
-
-function segmentColor(index) {
-  const hue = (index * 47) % 360;
-  return `hsl(${hue} 90% 78%)`;
-}
-
-/**
- * @param {string} value
- */
-function escapeHtml(value) {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
-}
-
-/**
- * @param {string} value
- */
-function escapeRegExp(value) {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * @param {string} url
- */
-function queryFromUrl(url) {
-  const parsed = readUrl(url);
-  if (!parsed) return "";
-  return parsed.searchParams.get("wd") ?? parsed.searchParams.get("q") ?? "";
 }
 
 /**

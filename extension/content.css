@@ -21,8 +21,8 @@ html:not([data-bsp-ready]) #hdtb-msb {
 
 html[data-bsp-active] {
   /* —— 调卡片/列宽：改这些变量即可（壳宽还需同步 src/content-boot.mjs 常量）—— */
-  --bsp-single-max: 800px;
-  --bsp-double-max: 1120px;
+  --bsp-single-max: 1100px;
+  --bsp-double-max: 1320px;
   --bsp-card-gap: 22px;
   --bsp-card-column-gap: 24px;
   --bsp-card-pad-y: 18px;
@@ -69,7 +69,7 @@ html[data-bsp-active] #rcnt[data-bsp-centered] {
   overflow: visible !important;
 }
 
-/* 顶栏稳态居中：靠 auto margin，避免 JS 反复写 left 导致肉眼跳动 */
+/* 顶栏与结果列：壳宽由 JS 写入 --bsp-shell-width，左右用同一 targetLeft 落在视口正中 */
 html[data-bsp-active] #searchform[data-bsp-centered],
 html[data-bsp-active] #appbar[data-bsp-centered],
 html[data-bsp-active] #slim_appbar[data-bsp-centered],
@@ -77,26 +77,82 @@ html[data-bsp-active] #sfcnt[data-bsp-centered],
 html[data-bsp-active] #sf[data-bsp-centered],
 html[data-bsp-active] #head[data-bsp-centered] {
   width: var(--bsp-shell-width) !important;
-  max-width: min(var(--bsp-shell-width), calc(100vw - 64px)) !important;
-  margin-left: auto !important;
+  /* 100% 相对包含块，避免 100vw 含滚动条把壳算偏 */
+  max-width: min(var(--bsp-shell-width), calc(100% - 64px)) !important;
+  margin-left: var(--bsp-target-left, auto) !important;
   margin-right: auto !important;
   left: auto !important;
   right: auto !important;
   box-sizing: border-box !important;
 }
 
-/* 百度/谷歌导航：打断默认左缩进；水平位置由 JS 写入 */
+/* 百度/谷歌导航：清原生左缩进；壳内居中；禁止横向滚动条 */
 html[data-bsp-active] #s_tab[data-bsp-centered],
 html[data-bsp-active] #s_tab_inner[data-bsp-centered],
 html[data-bsp-active] #hdtb[data-bsp-centered],
 html[data-bsp-active] #hdtbSum[data-bsp-centered],
-html[data-bsp-active] #hdtb-msb[data-bsp-centered] {
+html[data-bsp-active] #hdtb-msb[data-bsp-centered],
+html[data-bsp-active] #appbar[data-bsp-centered],
+html[data-bsp-active] [data-bsp-nav-inner],
+html[data-bsp-active] [data-bsp-nav-scrollkill] {
   padding-left: 0 !important;
-  margin-left: 0 !important;
+  padding-inline-start: 0 !important;
   box-sizing: border-box !important;
   float: none !important;
   overflow: visible !important;
+  overflow-x: visible !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html[data-bsp-active] [data-bsp-nav-scrollkill]::-webkit-scrollbar,
+html[data-bsp-active] [data-bsp-nav-inner]::-webkit-scrollbar,
+html[data-bsp-active] #s_tab[data-bsp-centered]::-webkit-scrollbar,
+html[data-bsp-active] #appbar[data-bsp-centered]::-webkit-scrollbar,
+html[data-bsp-active] #appbar[data-bsp-centered] *::-webkit-scrollbar,
+html[data-bsp-active] #s_tab[data-bsp-centered] *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* 壳内后代默认禁止横向滚动条（下拉层仍可用 overflow:visible） */
+html[data-bsp-active] #appbar[data-bsp-centered] *,
+html[data-bsp-active] #s_tab[data-bsp-centered] * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html[data-bsp-active] #s_tab[data-bsp-centered],
+html[data-bsp-active] #s_tab_inner[data-bsp-centered],
+html[data-bsp-active] #hdtb[data-bsp-centered],
+html[data-bsp-active] #hdtbSum[data-bsp-centered],
+html[data-bsp-active] #hdtb-msb[data-bsp-centered],
+html[data-bsp-active] #appbar[data-bsp-centered] {
   position: relative !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+}
+
+/* 内层标签行缩成内容宽，才能被外层推到正中（含谷歌哈希类名容器） */
+html[data-bsp-active] #s_tab_inner[data-bsp-centered],
+html[data-bsp-active] [data-bsp-nav-inner] {
+  width: max-content !important;
+  max-width: 100% !important;
+  flex: 0 0 auto !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+  transform: none !important;
 }
 
 html[data-bsp-active] #head[data-bsp-centered] form,
@@ -217,16 +273,3 @@ a.bsp-site-search {
 a.bsp-site-search:hover {
   text-decoration: underline;
 }
-
-mark.bsp-hl {
-  color: inherit;
-  border-radius: 2px;
-}
-
-mark.bsp-hl[data-bsp-seg="0"] { background-color: #fff3a0; }
-mark.bsp-hl[data-bsp-seg="1"] { background-color: #b8f2c8; }
-mark.bsp-hl[data-bsp-seg="2"] { background-color: #a8e7ff; }
-mark.bsp-hl[data-bsp-seg="3"] { background-color: #ffc9a8; }
-mark.bsp-hl[data-bsp-seg="4"] { background-color: #f6c1e0; }
-mark.bsp-hl[data-bsp-seg="5"] { background-color: #d7c6ff; }
-mark.bsp-hl[data-bsp-seg="6"] { background-color: #c8f7e4; }
