@@ -41,10 +41,16 @@ html[data-bsp-active] nav.b_scopebar {
   min-width: 0 !important;
 }
 
-/* 必应右栏（深入了解 / 知识卡）直接隐藏，主列独占壳宽 */
+/* 必应右栏（深入了解 / 知识卡）直接隐藏，主列独占壳宽。
+   新版知识卡不一定是 #b_context 或直接子级 aside。 */
 html[data-bsp-active] #b_context,
 html[data-bsp-active] #b_content > aside,
-html[data-bsp-active] #b_mcw > aside {
+html[data-bsp-active] #b_mcw > aside,
+html[data-bsp-active] #b_content > .b_entityTP,
+html[data-bsp-active] #b_content > .lite-entcard,
+html[data-bsp-active] #b_results ~ aside,
+html[data-bsp-active] #b_results ~ .b_entityTP,
+html[data-bsp-active] #b_results ~ .lite-entcard {
   display: none !important;
 }
 
@@ -75,13 +81,27 @@ html[data-bsp-active] #hdtbSum[data-bsp-centered],
 html[data-bsp-active] #hdtb-msb[data-bsp-centered],
 html[data-bsp-active] #center_col[data-bsp-centered],
 html[data-bsp-active] #rcnt[data-bsp-centered],
-html[data-bsp-active] #b_header[data-bsp-centered],
 html[data-bsp-active] #b_tween[data-bsp-centered],
 html[data-bsp-active] #b_mcw[data-bsp-centered],
 html[data-bsp-active] #b_content[data-bsp-centered],
 html[data-bsp-active] #b_results[data-bsp-centered] {
   float: none !important;
   overflow: visible !important;
+}
+
+/* 新版必应：计数已经在居中壳里，禁止再定宽/改定位，避免压住第一条并在刷新后横移 */
+html[data-bsp-active] #b_content[data-bsp-centered] #b_tween {
+  position: static !important;
+  top: auto !important;
+  inset: auto !important;
+  width: auto !important;
+  max-width: 100% !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  margin-top: 0 !important;
+  margin-bottom: 16px !important;
+  transform: none !important;
+  float: none !important;
 }
 
 /* 顶栏与结果列：壳宽由 JS 写入 --bsp-shell-width，左右用同一 targetLeft 落在视口正中 */
@@ -100,6 +120,18 @@ html[data-bsp-active] #b_tween[data-bsp-centered] {
   left: auto !important;
   right: auto !important;
   box-sizing: border-box !important;
+}
+
+/* 顶栏收成壳宽后，必应 #id_h { float:right; right:32px } 会把「自定义」拽到搜索按钮上。
+   取消这段只影响绘制的内缩，并给搜索框留出账号簇宽度，窄壳时也不再叠上去。 */
+html[data-bsp-active] #b_header[data-bsp-centered] #id_h {
+  right: auto !important;
+  left: auto !important;
+}
+
+html[data-bsp-active] #b_header[data-bsp-centered] #sb_form {
+  max-width: calc(100% - 248px) !important;
+  min-width: 0 !important;
 }
 
 /* 谷歌/必应导航：清原生左缩进；壳内居中；禁止横向滚动条 */
@@ -164,6 +196,57 @@ html[data-bsp-active] [data-bsp-nav-inner] {
   align-items: center !important;
   text-align: center !important;
   transform: none !important;
+}
+
+/*
+ * 必应「更多」：标签行被改成 overflow:visible 的横排 flex 后，
+ * 下拉会漏进按钮（竖线切开「更多」）并在下方露出「资讯」。
+ * 平时收回弹层；悬停、键盘焦点或 aria-expanded 时再在按钮下方打开。
+ */
+html[data-bsp-active] nav.b_scopebar li:has(> .b_sp_over_cont) {
+  position: relative !important;
+}
+
+html[data-bsp-active] nav.b_scopebar .b_sp_over_cont {
+  display: none !important;
+  position: absolute !important;
+  top: calc(100% - 4px) !important;
+  right: 0 !important;
+  bottom: auto !important;
+  left: auto !important;
+  width: max-content !important;
+  min-width: 148px !important;
+  height: auto !important;
+  max-height: none !important;
+  margin: 0 !important;
+  flex: none !important;
+  float: none !important;
+  z-index: 40 !important;
+  overflow: visible !important;
+  white-space: nowrap !important;
+}
+
+html[data-bsp-active] nav.b_scopebar li:hover > .b_sp_over_cont,
+html[data-bsp-active] nav.b_scopebar li:focus-within > .b_sp_over_cont,
+html[data-bsp-active] nav.b_scopebar li:has(> a[aria-expanded="true"]) > .b_sp_over_cont {
+  display: block !important;
+}
+
+html[data-bsp-active] nav.b_scopebar .b_sp_over_menu {
+  display: block !important;
+  position: static !important;
+  width: auto !important;
+  min-width: 100% !important;
+  margin: 0 !important;
+  float: none !important;
+  flex-direction: column !important;
+}
+
+html[data-bsp-active] nav.b_scopebar .b_sp_over_menu > li {
+  display: block !important;
+  float: none !important;
+  width: auto !important;
+  margin: 0 !important;
 }
 
 html[data-bsp-active] #searchform[data-bsp-centered] form,
@@ -273,6 +356,83 @@ html[data-bsp-active] #sfcnt[data-bsp-centered] form {
   max-width: 100% !important;
   margin-left: 0 !important;
   margin-right: 0 !important;
+}
+
+/* 摘要里并排的正文和右侧知识图改成上下通栏，避免单列里裁掉右半 */
+#bsp-results[data-mode] > li.b_algo .b_caption > * {
+  float: none !important;
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+/* 百科横排卡（基本用法 | 配图 | 短语）：只改这一行，卡片内部排版保持原样 */
+#bsp-results[data-mode] > li.b_algo .b_rcGbModCards {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: stretch !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  gap: 12px !important;
+}
+
+#bsp-results[data-mode] > li.b_algo .b_rcGbModCards > *,
+#bsp-results[data-mode] > li.b_algo .b_rcGbModCard,
+#bsp-results[data-mode] > li.b_algo .b_rcGbModImageCard,
+#bsp-results[data-mode] > li.b_algo .b_acf_card,
+#bsp-results[data-mode] > li.b_algo .acf_t_c_content,
+#bsp-results[data-mode] > li.b_algo .acf_t_c_inner,
+#bsp-results[data-mode] > li.b_algo .acf_t_c_title_cont,
+#bsp-results[data-mode] > li.b_algo .b_bimgSetrcw,
+#bsp-results[data-mode] > li.b_algo .b_bwrich_icma {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  overflow: visible !important;
+  float: none !important;
+  flex: none !important;
+  grid-column: 1 / -1 !important;
+  box-sizing: border-box !important;
+}
+
+#bsp-results[data-mode] > li.b_algo .b_rcGbModImageCard img {
+  display: block !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: 420px !important;
+  object-fit: contain !important;
+}
+
+/* 卡片里右侧配图/知识图改成通栏，避免单列居中时被卡片裁掉右半 */
+#bsp-results[data-mode] > li.b_algo .b_imagePair,
+#bsp-results[data-mode] > li.b_algo .b_imagePair_imgcap,
+#bsp-results[data-mode] > li.b_algo .b_imgcap,
+#bsp-results[data-mode] > li.b_algo .b_imgcap_altv,
+#bsp-results[data-mode] > li.b_algo .b_floatR,
+#bsp-results[data-mode] > li.b_algo .b_float_img {
+  float: none !important;
+  display: block !important;
+  position: static !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+  flex: none !important;
+}
+
+#bsp-results[data-mode] > li.b_algo .b_imagePair > *,
+#bsp-results[data-mode] > li.b_algo .b_imagePair img,
+#bsp-results[data-mode] > li.b_algo .b_imgcap img {
+  max-width: 100% !important;
+  min-width: 0 !important;
 }
 
 /* 结果内双列深链：原生 ul 固定 ~300px float，双列卡片里会溢出重叠 */

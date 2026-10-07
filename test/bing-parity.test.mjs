@@ -102,6 +102,9 @@ test("必应顶栏、导航、通栏答案、结果列共用同一居中壳（�
     assert.equal(header.style.width, `${expected}px`);
     assert.equal(header.style.marginLeft, `${left}px`);
     assert.notEqual(header.style.display, "flex", "顶栏不能被当成导航改成单行 flex");
+    assert.equal(header.style.position, "", "顶栏不能改 position，否则「自定义」提示会叠到按钮上");
+    assert.equal(header.style.overflow, "");
+    assert.equal(header.style.transform, "");
     // b_tween 只对齐左缘，不改 position / width（避免图标相对定位错位）
     assert.equal(document.getElementById("b_tween").style.marginLeft, `${left}px`);
     // width 不再由 JS 设置，保留原生值（空字符串 or 原生值）
@@ -125,6 +128,14 @@ test("必应顶栏、导航、通栏答案、结果列共用同一居中壳（�
     // 标签间距（li margin）属于标签本身，不当成偏移清掉
     assert.equal(nav.querySelector("li + li").style.marginLeft, "12px");
     assert.equal(nav.querySelector("li > a").style.paddingLeft, "");
+    const more = document.getElementById("b-scopeListItem-menu");
+    const popup = more.querySelector(".b_sp_over_cont");
+    assert.equal(more.style.position, "relative");
+    assert.equal(more.style.paddingLeft, "");
+    assert.equal(popup.dataset.bspNavTrailing, undefined);
+    assert.equal(popup.dataset.bspNavInner, undefined);
+    assert.equal(popup.style.display, "");
+    assert.equal(popup.style.bottom, "");
   }
 });
 
@@ -140,6 +151,69 @@ test("必应无右栏时仍整体落位外壳，普通单列不改导航", () =>
   alignSingleCenter(plain.getElementById("bsp-results"), 1400);
   assert.equal(plain.querySelector("nav.b_scopebar").dataset.bspCentered, undefined);
   assert.equal(plain.getElementById("b_mcw").style.width, "");
+});
+
+test("必应单列居中把结果内横排知识卡改成上下通栏，不再压到标题上", () => {
+  const fact = `<li class="b_algo"><h2><a href="https://baike.baidu.com/item/level">level</a></h2>
+    <div class="b_caption">
+      <div class="baike-row" style="display:flex;margin-top:-28px;position:relative;top:-12px">
+        <div style="width:34%">基本用法</div>
+        <div style="width:32%">level</div>
+        <div style="width:34%">短语搭配</div>
+      </div>
+    </div>
+  </li>`;
+  const html = bingContentPage({ mode: "single-center" })
+    .replace(
+      `<div id="bsp-results" data-mode="single-center"></div>`,
+      `<div id="bsp-results" data-mode="single-center">${fact}</div>`,
+    )
+    .replace("<main>", `<main style="margin-top:24px">`);
+  const { document } = parseHTML(html);
+  alignSingleCenter(document.getElementById("bsp-results"), 1400);
+  const row = document.querySelector(".baike-row");
+  assert.equal(row.style.display, "block");
+  assert.equal(row.style.position, "static");
+  assert.equal(row.style.top, "auto");
+  assert.equal(row.style.marginTop, "12px");
+  for (const child of row.children) {
+    assert.equal(child.style.display, "block");
+    assert.equal(child.style.width, "100%");
+    assert.equal(child.style.position, "static");
+  }
+  assert.equal(document.querySelector("#b_content > main").style.marginTop, "24px");
+});
+
+test("必应单列居中收起结果列右侧知识卡，外壳改成块并居中", () => {
+  const html = bingContentPage({ mode: "single-center" }).replace(
+    `<aside style="width:320px"><div>深入了解</div></aside>`,
+    `<div class="b_entityTP" style="width:360px"><div>level</div></div>`,
+  );
+  const { document } = parseHTML(html);
+  const metrics = layoutMetrics(document, "single-center", 1400);
+  alignSingleCenter(document.getElementById("bsp-results"), 1400);
+  assert.equal(document.querySelector(".b_entityTP").style.display, "none");
+  const shell = document.getElementById("b_content");
+  assert.equal(shell.style.display, "block");
+  assert.equal(shell.style.width, `${metrics.shellWidth}px`);
+  assert.equal(shell.style.marginLeft, `${metrics.targetLeft}px`);
+});
+
+test("新版必应结果计数跟着居中壳走，刷新后不再定宽压到第一条", () => {
+  const { document } = parseHTML(bingContentPage({ mode: "single-center" }));
+  const box = document.getElementById("bsp-results");
+  const metrics = layoutMetrics(document, "single-center", 1400);
+  alignSingleCenter(box, 1400);
+  const tween = document.getElementById("b_tween");
+  assert.equal(tween.style.position, "static");
+  assert.equal(tween.style.width, "auto");
+  assert.equal(tween.style.marginLeft, "0");
+  assert.equal(tween.style.marginBottom, "16px");
+  assert.notEqual(tween.style.marginLeft, `${metrics.targetLeft}px`);
+  alignSingleCenter(box, 1400);
+  assert.equal(tween.style.position, "static");
+  assert.equal(tween.style.width, "auto");
+  assert.equal(tween.style.marginLeft, "0");
 });
 
 test("新版必应以 #b_content 为壳，右栏屏蔽后 main 独占壳宽", () => {
@@ -173,6 +247,15 @@ test("清单匹配必应搜索路径，卡片样式覆盖必应结果", () => {
   assert.match(css, /\.b_tranthis[\s\S]*display:\s*none/);
   assert.match(css, /\.b_vlist2col[\s\S]*float:\s*none/);
   assert.match(css, /data-bsp-results-host/);
+  assert.match(css, /\.b_sp_over_cont\s*\{[^}]*display:\s*none/);
+  assert.match(css, /li:hover > \.b_sp_over_cont[\s\S]*display:\s*block/);
+  assert.match(css, /#b_content > \.b_entityTP/);
+  assert.match(css, /\.b_imagePair[\s\S]*width:\s*100%/);
+  assert.match(css, /\.b_rcGbModCards[\s\S]*flex-direction:\s*column/);
+  assert.match(css, /\.b_bwrich_icma[\s\S]*height:\s*auto/);
+  assert.match(css, /\.b_rcGbModImageCard img[\s\S]*width:\s*100%/);
+  assert.match(css, /#b_header\[data-bsp-centered\] #id_h[\s\S]*right:\s*auto/);
+  assert.match(css, /#b_header\[data-bsp-centered\] #sb_form[\s\S]*max-width:\s*calc\(100% - 248px\)/);
 });
 
 test("必应结果盒挂在 ol 的 li 宿主上，避免非法 div 子节点", async () => {
