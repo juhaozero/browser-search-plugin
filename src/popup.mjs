@@ -1,9 +1,11 @@
+import { applyLocale, createLocaleStore, DEFAULT_LOCALE, normalizeLocale } from "./i18n.mjs";
 import { DEFAULT_PREFS, createChromePrefsStore, normalizePrefs } from "./preferences.mjs";
 
 /**
  * @param {Document} document
  * @param {{
  *   prefsStore?: { load: () => Promise<object>, save: (prefs: object) => Promise<object> },
+ *   localeStore?: { load: () => Promise<string>, save: (locale: string) => Promise<string> },
  * }} [deps]
  */
 export async function mountPopup(document, deps = {}) {
@@ -13,8 +15,14 @@ export async function mountPopup(document, deps = {}) {
       : null);
   if (!store) throw new Error("没有可用的偏好存储");
 
-  const prefs = await store.load();
+  const localeStore = deps.localeStore
+    ?? (typeof chrome !== "undefined" && chrome?.storage
+      ? createLocaleStore(chrome.storage)
+      : createLocaleStore());
+
+  const [prefs, locale] = await Promise.all([store.load(), localeStore.load()]);
   paint(document, prefs);
+  applyLocale(document, normalizeLocale(locale));
 
   const form = document.getElementById("bsp-prefs");
   if (!form) throw new Error("弹窗缺少表单");
@@ -30,10 +38,29 @@ export async function mountPopup(document, deps = {}) {
     void commit();
   });
 
+  for (const btn of document.querySelectorAll("[data-locale]")) {
+    btn.addEventListener("click", () => {
+      const next = normalizeLocale(btn.getAttribute("data-locale"));
+      applyLocale(document, next);
+      void localeStore.save(next);
+    });
+  }
+
   return {
     commit,
     async getPrefs() {
       return store.load();
+    },
+    async getLocale() {
+      return localeStore.load();
+    },
+    /**
+     * @param {string} next
+     */
+    async setLocale(next) {
+      const saved = await localeStore.save(next);
+      applyLocale(document, saved);
+      return saved;
     },
   };
 }
@@ -66,3 +93,5 @@ export function readForm(document) {
 if (typeof document !== "undefined" && document.getElementById("bsp-prefs")) {
   void mountPopup(document);
 }
+
+export { DEFAULT_LOCALE, applyLocale };

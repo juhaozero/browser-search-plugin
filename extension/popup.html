@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-CN">
+<html lang="en" data-locale="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -22,16 +22,22 @@
           </svg>
         </div>
         <div class="bsp-hero-copy">
-          <h1>SearchLayout</h1>
-          <p>把搜索结果排成更易读的版式</p>
+          <div class="bsp-hero-top">
+            <h1>SearchLayout</h1>
+            <div class="bsp-lang" role="group" aria-label="Language">
+              <button type="button" class="bsp-lang-btn is-active" data-locale="en" aria-pressed="true" data-i18n="langEn">EN</button>
+              <button type="button" class="bsp-lang-btn" data-locale="zh" aria-pressed="false" data-i18n="langZh">中文</button>
+            </div>
+          </div>
+          <p data-i18n="tagline">Cleaner, more readable search layouts</p>
         </div>
       </header>
 
       <form id="bsp-prefs" class="bsp-form">
         <section class="bsp-section" aria-labelledby="bsp-layout-title">
           <div class="bsp-section-head">
-            <h2 id="bsp-layout-title">布局</h2>
-            <span class="bsp-section-hint">立即生效</span>
+            <h2 id="bsp-layout-title" data-i18n="layout">Layout</h2>
+            <span class="bsp-section-hint" data-i18n="layoutHint">Applies instantly</span>
           </div>
 
           <div class="bsp-mode-grid" role="radiogroup" aria-labelledby="bsp-layout-title">
@@ -46,8 +52,8 @@
                   </svg>
                 </span>
                 <span class="bsp-mode-text">
-                  <span class="bsp-mode-title">原始</span>
-                  <span class="bsp-mode-desc">不改引擎排版</span>
+                  <span class="bsp-mode-title" data-i18n="modeOriginal">Original</span>
+                  <span class="bsp-mode-desc" data-i18n="modeOriginalDesc">Keep the engine layout</span>
                 </span>
               </span>
             </label>
@@ -64,8 +70,8 @@
                   </svg>
                 </span>
                 <span class="bsp-mode-text">
-                  <span class="bsp-mode-title">单列</span>
-                  <span class="bsp-mode-desc">卡片纵向堆叠</span>
+                  <span class="bsp-mode-title" data-i18n="modeSingle">Single</span>
+                  <span class="bsp-mode-desc" data-i18n="modeSingleDesc">Stack results vertically</span>
                 </span>
               </span>
             </label>
@@ -82,8 +88,8 @@
                   </svg>
                 </span>
                 <span class="bsp-mode-text">
-                  <span class="bsp-mode-title">单列居中</span>
-                  <span class="bsp-mode-desc">阅读宽度更舒适</span>
+                  <span class="bsp-mode-title" data-i18n="modeSingleCenter">Centered</span>
+                  <span class="bsp-mode-desc" data-i18n="modeSingleCenterDesc">Comfortable reading width</span>
                 </span>
               </span>
             </label>
@@ -102,8 +108,8 @@
                   </svg>
                 </span>
                 <span class="bsp-mode-text">
-                  <span class="bsp-mode-title">双列</span>
-                  <span class="bsp-mode-desc">宽屏并排浏览</span>
+                  <span class="bsp-mode-title" data-i18n="modeDouble">Dual</span>
+                  <span class="bsp-mode-desc" data-i18n="modeDoubleDesc">Side-by-side on wide screens</span>
                 </span>
               </span>
             </label>
@@ -112,14 +118,14 @@
 
         <section class="bsp-section" aria-labelledby="bsp-reading-title">
           <div class="bsp-section-head">
-            <h2 id="bsp-reading-title">阅读</h2>
+            <h2 id="bsp-reading-title" data-i18n="reading">Reading</h2>
           </div>
 
           <label class="bsp-switch">
             <input type="checkbox" name="autoPage">
             <span class="bsp-switch-copy">
-              <span class="bsp-switch-title">自动翻页</span>
-              <span class="bsp-switch-desc">滚到底部时加载下一页结果</span>
+              <span class="bsp-switch-title" data-i18n="autoPage">Auto page</span>
+              <span class="bsp-switch-desc" data-i18n="autoPageDesc">Load the next page at the bottom</span>
             </span>
             <span class="bsp-switch-track" aria-hidden="true">
               <span class="bsp-switch-thumb"></span>
