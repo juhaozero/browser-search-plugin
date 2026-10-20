@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "node --max-old-space-size=4096 --test --test-isolation=none --test-concurrency=1 ./test/bing-parity.test.mjs ./test/boot-stability.test.mjs ./test/google-parity.test.mjs ./test/google-shell.test.mjs ./test/layout-gate.test.mjs ./test/preferences-popup.test.mjs ./test/search-session.test.mjs",
-    "build": "node scripts/build.mjs"
+    "test": "node --max-old-space-size=4096 --test --test-isolation=none --test-concurrency=1 ./test/bing-parity.test.mjs ./test/boot-stability.test.mjs ./test/google-parity.test.mjs ./test/google-shell.test.mjs ./test/layout-gate.test.mjs ./test/preferences-popup.test.mjs ./test/search-session.test.mjs ./test/ai-layout.test.mjs",
+    "build": "node scripts/build.mjs",
+    "test:browser": "node --test ./test/browser-layout.mjs"
   },
   "repository": {
     "type": "git",
@@ -20,7 +21,8 @@
   "homepage": "https://github.com/juhaozero/browser-search-plugin#readme",
   "devDependencies": {
     "esbuild": "^0.28.2",
-    "linkedom": "^0.18.13"
+    "linkedom": "^0.18.13",
+    "puppeteer-core": "25.12.0"
   },
   "type": "module"
 }

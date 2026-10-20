@@ -123,7 +123,7 @@ test("双列两卡等宽并整体按视口居中，搜索框同步居中", () =>
   assert.equal(document.getElementById("appbar").style.width, `${expected}px`);
   assert.equal(document.getElementById("center_col").style.width, `${expected}px`);
   assert.equal(document.getElementById("center_col").style.marginLeft, `${left}px`);
-  assert.equal(box.style.gridTemplateColumns, "minmax(0, 1fr) minmax(0, 1fr)");
+  assert.equal(box.style.gridTemplateColumns, "var(--bsp-grid-columns, minmax(0, 1fr) minmax(0, 1fr))");
 });
 
 test("单列/双列壳宽与顶栏共用同一视口中线", () => {
@@ -377,7 +377,7 @@ test("标签行后面的「工具」贴到右端，不参与居中也不和标�
 test("列模式结果条目使用卡片样式并放开内部宽度", () => {
   const css = readFileSync(new URL("../extension/content.css", import.meta.url), "utf8");
   assert.match(css, /#bsp-results\[data-mode="single-center"\] > \*:has\(h3\)[\s\S]*border-radius:\s*var\(--bsp-card-radius\)/);
-  assert.match(css, /#bsp-results\[data-mode="double"\][\s\S]*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)/);
+  assert.match(css, /#bsp-results\[data-mode="double"\][\s\S]*grid-template-columns:\s*var\(--bsp-grid-columns,\s*minmax\(0,\s*1fr\)\s+minmax\(0,\s*1fr\)\)/);
   assert.match(css, /yuRUbf[\s\S]*max-width:\s*100%\s*!important/);
   assert.match(css, /padding:\s*var\(--bsp-card-pad-y\)\s+var\(--bsp-card-pad-x\)/);
   assert.match(css, /nav\.b_scopebar\[data-bsp-centered\][\s\S]*justify-content:\s*center/);

@@ -115,12 +115,23 @@ export function createSearchSession(document, url, prefs) {
     if (!root) return;
     const pending = listOrganic(document).filter((item) => !document.getElementById("bsp-results")?.contains(item));
     for (const item of pending) rememberOrigin(item);
-    const box = ensureBox(root);
+    const box = ensureBox(root, pending[0]);
     box.dataset.mode = mode;
     for (const item of pending) box.appendChild(item);
+    // 只标记结果盒的祖先路径，AI 模块内部、导航和右栏不参与重排。
+    if (engine.name === "google") {
+      const column = document.getElementById("center_col");
+      const stop = column?.contains(box) ? column : root.parentElement;
+      for (let el = box.parentElement; el && el !== stop; el = el.parentElement) {
+        el.setAttribute("data-bsp-results-path", "");
+      }
+    }
   }
 
   function restoreOriginal() {
+    for (const el of document.querySelectorAll("[data-bsp-results-path]")) {
+      el.removeAttribute("data-bsp-results-path");
+    }
     const box = document.getElementById("bsp-results");
     const root = engine.resultsRoot(document);
     if (box) {
@@ -187,11 +198,15 @@ export function createSearchSession(document, url, prefs) {
     }
   }
 
-  function ensureBox(root) {
+  function ensureBox(root, firstResult) {
     const existing = document.getElementById("bsp-results");
     if (existing) return existing;
     const box = document.createElement("div");
     box.id = "bsp-results";
+    // 保留顶部 AI/广告的位置，不再无条件插到 firstChild 前。
+    let anchor = firstResult;
+    while (anchor?.parentElement && anchor.parentElement !== root) anchor = anchor.parentElement;
+    if (anchor?.parentElement !== root) anchor = null;
     // 必应结果根是 ol：不能直接塞 div，用 li 宿主包一层，避免浏览器「修正」DOM
     if (root.tagName === "OL" || root.tagName === "UL") {
       const host = document.createElement("li");
@@ -203,9 +218,9 @@ export function createSearchSession(document, url, prefs) {
       host.style.setProperty("width", "100%", "important");
       host.style.setProperty("max-width", "100%", "important");
       host.appendChild(box);
-      root.insertBefore(host, root.firstChild);
+      root.insertBefore(host, anchor);
     } else {
-      root.insertBefore(box, root.firstChild);
+      root.insertBefore(box, anchor);
     }
     return box;
   }
@@ -291,7 +306,7 @@ function isGoogleOrganic(element) {
   const isLegacy = element.classList.contains("g");
   const isModern = element.classList.contains("tF2Cxc");
   if (!isLegacy && !isModern) return false;
-  if (element.closest("#tads, #bottomads, #tadsb, #rhs, .uEierd, [data-text-ad], .kp-wholepage")) return false;
+  if (element.closest('#tads, #bottomads, #tadsb, #rhs, .uEierd, [data-text-ad], .kp-wholepage, #Odp5De, [data-attrid="SGE"], [data-attrid="AIOverview"], [data-ai-overview]')) return false;
   if (element.querySelector(".related-question-pair")) return false;
   if (!element.querySelector("h3") || !element.querySelector("a[href]")) return false;
   return true;

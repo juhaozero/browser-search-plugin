@@ -139,7 +139,7 @@ if (typeof location !== "undefined" && typeof document !== "undefined" && locati
       function patched(...args) {
         const beforeKey = searchPageKey(location.href);
         const result = original.apply(this, args);
-        voidMicrotask(() => {
+        queueMicrotask(() => {
           // 仅当查询身份变化时 reboot；追踪参数变化忽略
           if (searchPageKey(location.href) === beforeKey) return;
           globalThis[GLOBAL_KEY]?.onNavigate?.();

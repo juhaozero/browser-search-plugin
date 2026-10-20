@@ -60,8 +60,8 @@ const CENTERED_STYLE_PROPS = [
 const ASIDE_IDS = ["rhs", "b_context"];
 /** 结果列外壳：谷歌 #rcnt；必应旧版 #b_mcw；新版无 mcw 时用 #b_content */
 const LAYOUT_SHELL_IDS = ["rcnt", "b_mcw", "b_content"];
-/** 需要 flex-wrap 的外壳：必应旧版 #b_topw 通栏答案要独占一行 */
-const WRAPPING_SHELL_IDS = new Set(["b_mcw"]);
+/** 顶部 AI/通栏答案独占一行，结果列与侧栏排在下一行 */
+const WRAPPING_SHELL_IDS = new Set(["rcnt", "b_mcw", "b_content"]);
 const RELAYOUT_FLAG = "bspRelayout";
 /** 自身 DOM 改写期间屏蔽 MutationObserver，避免 refresh/搬移结果节点形成反馈环 */
 const DOM_MUTE_FLAG = "bspDomMute";
@@ -249,6 +249,8 @@ export function alignResultsBox(box, viewportWidth) {
     root.dataset.bspShellWidth === String(metrics.shellWidth)
     && root.dataset.bspColumnMode === mode
     && document.querySelector("[data-bsp-centered]")
+    && root.dataset.bspShellStructure === shellStructure(document)
+    && root.style.getPropertyValue("--bsp-main-width") === `${metrics.mainWidth}px`
   ) {
     refreshChromeLayout(document, metrics);
     return;
@@ -260,6 +262,7 @@ export function alignResultsBox(box, viewportWidth) {
     applyShellLayout(document, box, metrics);
     root.dataset.bspShellWidth = String(metrics.shellWidth);
     root.dataset.bspColumnMode = mode;
+    root.dataset.bspShellStructure = shellStructure(document);
     root.style.setProperty("--bsp-shell-width", `${metrics.shellWidth}px`);
     root.style.setProperty("--bsp-main-width", `${metrics.mainWidth}px`);
     root.style.setProperty("--bsp-target-left", `${metrics.targetLeft}px`);
@@ -268,13 +271,25 @@ export function alignResultsBox(box, viewportWidth) {
   }
 }
 
+// AI/侧栏可能在总宽不变时插入、隐藏或替换；不能只按壳宽缓存布局。
+const shellNodes = new WeakMap();
+let shellNodeId = 0;
+function shellStructure(document) {
+  const shell = findLayoutShell(document);
+  if (!shell) return "";
+  return [...shell.children].map((child) => {
+    if (!shellNodes.has(child)) shellNodes.set(child, ++shellNodeId);
+    return `${shellNodes.get(child)}:${isDisplayed(child)}`;
+  }).join("|");
+}
+
 /**
  * @param {string} mode
  * @param {number} viewportWidth
  */
 export function contentWidth(mode, viewportWidth) {
   const target = mode === "double" ? DOUBLE_SHELL_MAX : SINGLE_SHELL_MAX;
-  const usable = Math.max(280, viewportWidth - SIDE_GAP * 2);
+  const usable = Math.max(0, viewportWidth - SIDE_GAP * 2);
   return Math.min(target, usable);
 }
 
@@ -284,7 +299,7 @@ export function contentWidth(mode, viewportWidth) {
  * @param {number} viewportWidth
  */
 export function layoutMetrics(document, mode, viewportWidth) {
-  const maxShell = Math.max(320, viewportWidth - SIDE_GAP * 2);
+  const maxShell = Math.max(0, viewportWidth - SIDE_GAP * 2);
   const aside = visibleAside(document);
   const shell = findLayoutShell(document);
   const asideInShell = Boolean(aside && shell?.contains(aside));
@@ -293,6 +308,15 @@ export function layoutMetrics(document, mode, viewportWidth) {
   const minMain = mode === "double" ? 640 : 320;
 
   if (asideWidth > 0) {
+    // 窄屏将知识卡放到结果下方，避免 640px 主列 + 侧栏超过壳宽。
+    if (maxShell < minMain + ASIDE_GAP + asideWidth) {
+      return {
+        mainWidth: maxShell, asideWidth: Math.min(asideWidth, maxShell),
+        shellWidth: maxShell, targetLeft: Math.max(0, Math.round((viewportWidth - maxShell) / 2)),
+        gap: ASIDE_GAP, hasAside: true, aside, asideInShell: true,
+        stackAside: true, viewportWidth,
+      };
+    }
     const mainWidth = Math.max(
       minMain,
       Math.min(
@@ -357,12 +381,13 @@ function applyShellLayout(document, box, metrics) {
     rcnt.style.setProperty("align-items", "flex-start", "important");
     rcnt.style.setProperty("gap", `${metrics.gap}px`, "important");
     const wrap = needsWrap ? spanLeadingShellRows(rcnt, column) : false;
-    rcnt.style.setProperty("flex-wrap", wrap ? "wrap" : "nowrap", "important");
+    rcnt.style.setProperty("flex-wrap", wrap || metrics.stackAside ? "wrap" : "nowrap", "important");
 
     if (column) {
       stampCentered(column);
       column.style.setProperty("display", "block", "important");
-      column.style.setProperty("flex", "1 1 0", "important");
+      // basis=0 且 gap=0 时，通栏 AI 后仍能塞入一个零宽结果列；用主列预算保证换行。
+      column.style.setProperty("flex", metrics.stackAside ? "0 0 100%" : `1 1 ${metrics.mainWidth}px`, "important");
       column.style.setProperty("min-width", "0", "important");
       column.style.setProperty("max-width", `${metrics.mainWidth}px`, "important");
       column.style.setProperty("width", "auto", "important");
@@ -454,7 +479,7 @@ function applyShellLayout(document, box, metrics) {
   stackBingFactRows(box);
   if (mode === "double") {
     box.style.setProperty("display", "grid", "important");
-    box.style.setProperty("grid-template-columns", "minmax(0, 1fr) minmax(0, 1fr)", "important");
+    box.style.setProperty("grid-template-columns", "var(--bsp-grid-columns, minmax(0, 1fr) minmax(0, 1fr))", "important");
     box.style.setProperty("column-gap", `${CARD_COLUMN_GAP}px`, "important");
     box.style.setProperty("row-gap", `${CARD_GAP}px`, "important");
   }
@@ -506,7 +531,8 @@ function boxParentFallback(document) {
 function hasLeadingShellSibling(shell, column) {
   for (const child of shell.children) {
     if (child === column) return false;
-    if (!isElement(child) || !isDisplayed(child)) continue;
+    if (!isElement(child) || !isDisplayed(child) || child.contains(column)) continue;
+    if (child.id === "rhs" || child.querySelector("#rhs")) continue;
     if (child.tagName === "SCRIPT" || child.tagName === "STYLE") continue;
     return true;
   }
@@ -523,7 +549,8 @@ function spanLeadingShellRows(shell, column) {
   let spanned = false;
   for (const child of shell.children) {
     if (child === column) break;
-    if (!isElement(child) || !isDisplayed(child)) continue;
+    if (!isElement(child) || !isDisplayed(child) || child.contains(column)) continue;
+    if (child.id === "rhs" || child.querySelector("#rhs")) continue;
     if (child.tagName === "SCRIPT" || child.tagName === "STYLE") continue;
     stampCentered(child);
     child.style.setProperty("flex", "0 0 100%", "important");
@@ -1812,6 +1839,7 @@ function clearCenteredLayout(document) {
     delete el.dataset.bspNavScrollkill;
   }
   const root = document.documentElement;
+  delete root.dataset.bspShellStructure;
   root.style.removeProperty("--bsp-shell-width");
   root.style.removeProperty("--bsp-main-width");
   root.style.removeProperty("--bsp-target-left");
@@ -1930,15 +1958,18 @@ export function watchResults(document, onChange) {
   const attachNavWatches = (except) => {
     for (const id of NAV_WATCH_IDS) {
       const el = document.getElementById(id);
-      if (!el || el === except) continue;
+      if (!el || el === except || except?.contains(el)) continue;
       attach(el);
     }
   };
 
   const root = resolveResultsWatchRoot(document);
   if (root) {
-    attach(root);
-    attachNavWatches(root);
+    // 顶部 AI 常是 #center_col 的兄弟；只观察 #rso 会漏掉它的插入。
+    const shell = findLayoutShell(document);
+    const scope = shell?.contains(root) ? shell : root;
+    attach(scope);
+    attachNavWatches(scope);
   } else {
     // 结果容器晚到时用有界轮询挂载，避免对 body 开 subtree 观察（易 OOM）
     findTimer = (globalThis.setInterval ?? setInterval)(() => {
@@ -1946,8 +1977,10 @@ export function watchResults(document, onChange) {
       const found = resolveResultsWatchRoot(document);
       if (found) {
         clearFindTimer();
-        attach(found);
-        attachNavWatches(found);
+        const shell = findLayoutShell(document);
+        const scope = shell?.contains(found) ? shell : found;
+        attach(scope);
+        attachNavWatches(scope);
         onChange();
         return;
       }
@@ -2057,6 +2090,9 @@ function markActive(document, engine) {
     box.dataset.bspCount = String(box.children.length);
     if (box.dataset.mode) document.documentElement.dataset.bspColumnMode = box.dataset.mode;
     else delete document.documentElement.dataset.bspColumnMode;
+  } else {
+    delete document.documentElement.dataset.bspActive;
+    delete document.documentElement.dataset.bspColumnMode;
   }
 }
 
