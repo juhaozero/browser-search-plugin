@@ -19,5 +19,13 @@
     "Result container exceeds the viewport", bounds);
   console.assert(!box.querySelector('#rhs, #b_context, #Odp5De, [data-attrid="SGE"], [data-attrid="AIOverview"], [data-ai-overview]'),
     "AI/side panel was collected as an organic card");
+  const form = document.querySelector("form#tsf, form[role='search']");
+  const field = form?.querySelector("[name='q']")?.closest(".A8SBwf") ?? form;
+  if (!document.getElementById("b_results") && field && ["double", "single-center"].includes(box.dataset.mode)) {
+    const rect = field.getBoundingClientRect();
+    const offset = rect.left + rect.width / 2 - (bounds.left + bounds.width / 2);
+    console.info("Search field center offset (px):", offset);
+    console.assert(Math.abs(offset) < 1, "Search field and results have different centers", offset);
+  }
   return { mode:box.dataset.mode, columns, containerWidth:bounds.width, cards:rows.length };
 })();

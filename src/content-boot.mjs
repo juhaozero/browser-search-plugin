@@ -68,7 +68,7 @@ const DOM_MUTE_FLAG = "bspDomMute";
 
 const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "b_results", "b_content"];
 /** 顶栏/导航晚到时也要触发 realign（结果区 observer 看不到） */
-const NAV_WATCH_IDS = ["appbar", "slim_appbar", "hdtb", "b_header"];
+const NAV_WATCH_IDS = ["searchform", "sfcnt", "sf", "appbar", "slim_appbar", "hdtb", "b_header"];
 /** 现代谷歌导航标签的稳定标记（jsname 在多次改版中保持不变） */
 const NAV_TAB_JSNAME = "pxBnId";
 /** 必应顶栏导航：稳定结构，不依赖文案兜底 */
@@ -467,6 +467,7 @@ function applyShellLayout(document, box, metrics) {
   }
   placeNavBands(document, metrics.shellWidth, metrics.targetLeft, placed);
   sanitizeNavChrome(document);
+  alignGoogleSearchField(document, metrics);
 
   box.style.setProperty("width", "100%", "important");
   box.style.setProperty("max-width", "100%", "important");
@@ -597,7 +598,7 @@ function placeShellAside(shell, aside, widthPx) {
  */
 function neutralizePageLeftBias(document) {
   for (const id of [
-    "cnt", "center_col", "rcnt", "searchform", "appbar", "sfcnt", "main",
+    "cnt", "center_col", "rcnt", "appbar", "main",
     "hdtb", "slim_appbar", "b_content",
   ]) {
     const el = document.getElementById(id);
@@ -811,11 +812,12 @@ function collectHeaderBands(document) {
     seen.add(el);
     bands.push(el);
   };
-  // 先放搜索区，导航交给 placeNavBands 强制处理
-  for (const id of ["searchform", "appbar", "slim_appbar", "sfcnt", "sf", "b_header", "b_tween"]) {
+  // Google 搜索顶栏保留原生包含块、Logo 槽和账号操作区。
+  // 将整个 #searchform/#sfcnt/#sf 缩成结果壳宽会把绝对定位的右侧按钮推入搜索框。
+  // 导航仍单独对齐结果列；Bing 顶栏沿用其专用布局。
+  for (const id of ["appbar", "slim_appbar", "b_header", "b_tween"]) {
     push(document.getElementById(id));
   }
-  push(document.querySelector("form[role='search']")?.closest("#searchform, #sf, #sfcnt, #b_header"));
   return bands;
 }
 
@@ -920,6 +922,71 @@ function refreshChromeLayout(document, metrics) {
   }
   placeNavBands(document, metrics.shellWidth, metrics.targetLeft, placed);
   sanitizeNavChrome(document);
+  alignGoogleSearchField(document, metrics);
+}
+
+const searchFieldStyles = new WeakMap();
+const SEARCH_FIELD_PROPS = ["width", "max-width", "min-width", "margin-left", "margin-right", "box-sizing", "flex-shrink"];
+
+function restoreGoogleSearchField(document) {
+  const saved = searchFieldStyles.get(document);
+  if (!saved) return;
+  for (const [prop, value, priority] of saved.styles) {
+    if (value) saved.field.style.setProperty(prop, value, priority);
+    else saved.field.style.removeProperty(prop);
+  }
+  if (!saved.hadStyle && !saved.field.style.cssText) saved.field.removeAttribute("style");
+  searchFieldStyles.delete(document);
+}
+
+// Move only the visible search field, never the full header/account containing block.
+// Measure the result column and reserve symmetric space for native controls.
+function alignGoogleSearchField(document, metrics) {
+  if (document.getElementById("b_results")) return;
+  const form = document.querySelector("form#tsf, form[role='search']");
+  const input = form?.querySelector("[name='q']");
+  if (!input) return;
+  const field = input.closest(".A8SBwf") ?? form;
+  const initial = rectOf(field);
+  if (!(initial.width > 0 && initial.height > 0)) return;
+  const previous = searchFieldStyles.get(document);
+  if (previous?.field !== field) {
+    restoreGoogleSearchField(document);
+    searchFieldStyles.set(document, { field, hadStyle:field.hasAttribute("style"),
+      styles:SEARCH_FIELD_PROPS.map(prop => [prop, field.style.getPropertyValue(prop), field.style.getPropertyPriority(prop)]) });
+  }
+  const box = document.getElementById("bsp-results");
+  const results = rectOf(box);
+  const center = results.width > 0 ? results.left + results.width / 2 : metrics.targetLeft + metrics.mainWidth / 2;
+  let left = 16;
+  let right = metrics.viewportWidth - 16;
+  for (const control of document.querySelectorAll("#gb, #logo, #hplogo, #google-logo")) {
+    if (field.contains(control) || !isDisplayed(control)) continue;
+    const r = rectOf(control);
+    if (r.width <= 0 || r.height <= 0 || r.bottom <= initial.top || r.top >= initial.bottom) continue;
+    if (r.left >= center) right = Math.min(right, r.left - 24);
+    else if (r.right <= center) left = Math.max(left, r.right + 24);
+  }
+  const width = Math.min(results.width || metrics.mainWidth, 2 * Math.min(center - left, right - center));
+  // Keep the native field when there is no usable slot at the result center.
+  if (width < 180) { restoreGoogleSearchField(document); return; }
+  field.style.setProperty("width", `${width}px`, "important");
+  field.style.setProperty("max-width", "none", "important");
+  field.style.setProperty("min-width", "0", "important");
+  field.style.setProperty("box-sizing", "border-box", "important");
+  field.style.setProperty("flex-shrink", "0", "important");
+  field.style.setProperty("margin-left", "0", "important");
+  field.style.setProperty("margin-right", "0", "important");
+  // Grid/flex parents may contribute their own offset. Correct actual geometry,
+  // rather than adding the viewport offset to a native logo gutter a second time.
+  for (let pass = 0; pass < 3; pass++) {
+    const r = rectOf(field);
+    const delta = center - (r.left + r.width / 2);
+    if (Math.abs(delta) < 0.5) break;
+    const current = Number.parseFloat(field.style.marginLeft) || 0;
+    field.style.setProperty("margin-left", `${current + delta}px`, "important");
+    field.style.setProperty("margin-right", `${-(current + delta)}px`, "important");
+  }
 }
 
 /**
@@ -1827,6 +1894,7 @@ function stampCentered(el) {
  * @param {Document} document
  */
 function clearCenteredLayout(document) {
+  restoreGoogleSearchField(document);
   for (const el of document.querySelectorAll("[data-bsp-centered]")) {
     for (const prop of CENTERED_STYLE_PROPS) {
       el.style.removeProperty(prop);
@@ -1947,11 +2015,14 @@ export function watchResults(document, onChange) {
 
   /** @type {MutationObserver[]} */
   const observers = [];
+  const observedScopes = new Set();
 
   const attach = (root) => {
+    if ([...observedScopes].some(scope => scope.contains(root))) return;
     const obs = new MutationObserver(onMutations);
     obs.observe(root, { childList: true, subtree: true });
     observers.push(obs);
+    observedScopes.add(root);
     observer = obs;
   };
 
@@ -2017,6 +2088,7 @@ export function watchResults(document, onChange) {
         }
       }
       observers.length = 0;
+      observedScopes.clear();
       observer = null;
       clearTimer();
       muteDepth = 0;
@@ -2075,6 +2147,8 @@ function realign(document, layout) {
     clearCenteredLayout(document);
     return;
   }
+  // Apply scoped result-path CSS before measuring the search-field target.
+  document.documentElement.dataset.bspActive = "1";
   alignResultsBox(box, layout.viewportWidth ?? measureViewport());
 }
 

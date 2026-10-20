@@ -30,7 +30,6 @@ html[data-bsp-active] #cnt,
 html[data-bsp-active] #center_col,
 html[data-bsp-active] #rcnt,
 html[data-bsp-active] #search,
-html[data-bsp-active] #searchform,
 html[data-bsp-active] #appbar,
 html[data-bsp-active] #b_header,
 html[data-bsp-active] #b_content,
@@ -73,11 +72,8 @@ html[data-bsp-active][data-bsp-column-mode="double"] #b_results {
   box-sizing: border-box !important;
 }
 
-html[data-bsp-active] #searchform[data-bsp-centered],
 html[data-bsp-active] #appbar[data-bsp-centered],
 html[data-bsp-active] #slim_appbar[data-bsp-centered],
-html[data-bsp-active] #sfcnt[data-bsp-centered],
-html[data-bsp-active] #sf[data-bsp-centered],
 html[data-bsp-active] #hdtb[data-bsp-centered],
 html[data-bsp-active] #hdtbSum[data-bsp-centered],
 html[data-bsp-active] #hdtb-msb[data-bsp-centered],
@@ -107,11 +103,8 @@ html[data-bsp-active] #b_content[data-bsp-centered] #b_tween {
 }
 
 /* 顶栏与结果列：壳宽由 JS 写入 --bsp-shell-width，左右用同一 targetLeft 落在视口正中 */
-html[data-bsp-active] #searchform[data-bsp-centered],
 html[data-bsp-active] #appbar[data-bsp-centered],
 html[data-bsp-active] #slim_appbar[data-bsp-centered],
-html[data-bsp-active] #sfcnt[data-bsp-centered],
-html[data-bsp-active] #sf[data-bsp-centered],
 html[data-bsp-active] #b_header[data-bsp-centered],
 html[data-bsp-active] #b_tween[data-bsp-centered] {
   width: var(--bsp-shell-width) !important;
@@ -251,11 +244,6 @@ html[data-bsp-active] nav.b_scopebar .b_sp_over_menu > li {
   margin: 0 !important;
 }
 
-html[data-bsp-active] #searchform[data-bsp-centered] form,
-html[data-bsp-active] #sfcnt[data-bsp-centered] form {
-  max-width: 100% !important;
-  box-sizing: border-box !important;
-}
 
 /* AI 出现时 #search/#rso 可变成限宽的 grid/flex；只释放结果盒祖先路径。 */
 html[data-bsp-active] [data-bsp-results-path] {

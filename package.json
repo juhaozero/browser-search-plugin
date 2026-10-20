@@ -6,7 +6,7 @@
   "scripts": {
     "test": "node --max-old-space-size=4096 --test --test-isolation=none --test-concurrency=1 ./test/bing-parity.test.mjs ./test/boot-stability.test.mjs ./test/google-parity.test.mjs ./test/google-shell.test.mjs ./test/layout-gate.test.mjs ./test/preferences-popup.test.mjs ./test/search-session.test.mjs ./test/ai-layout.test.mjs",
     "build": "node scripts/build.mjs",
-    "test:browser": "node --test ./test/browser-layout.mjs"
+    "test:browser": "node --test ./test/browser-layout.mjs ./test/browser-google-header.mjs"
   },
   "repository": {
     "type": "git",
