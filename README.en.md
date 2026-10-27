@@ -10,6 +10,7 @@ A Chrome extension that makes **Google and Bing desktop web search results** eas
 
 - **Column modes**: Original / Single / Single-center / Double (results as cards)
 - **Auto-page**: When you scroll near the bottom, the next page of organic results is appended on the same page
+- **Loading status**: See the number of appended pages, retry failed requests, continue after each 10-page pause, or return to the top
 - **Instant preferences**: Change settings from the toolbar popup; stored in `chrome.storage` and can sync with your Chrome account
 
 Defaults: single-center layout + auto-page on.

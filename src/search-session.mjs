@@ -1,5 +1,4 @@
 const PAGE_SIZE = 10;
-const MAX_APPENDED_PAGES = 10;
 
 /**
  * @param {string} url
@@ -14,22 +13,37 @@ export function isDesktopWebSearch(url) {
 
 /**
  * @param {string} url
- * @param {Document} [document] 当前已加载的一页；必应每页条数不固定，只能读它的「下一页」链接
+ * @param {Document} [document] 当前已加载的一页，优先使用引擎实际的「下一页」链接
  * @returns {string | null}
  */
 export function nextPageUrl(url, document) {
   const parsed = readUrl(url);
   if (!parsed || !isDesktopWebSearch(url)) return null;
+  const bing = isBingWeb(parsed);
+  const offsetKey = bing ? "first" : "start";
+  const defaultOffset = bing ? 1 : 0;
+  const offset = Number(parsed.searchParams.get(offsetKey) || defaultOffset);
+  if (!Number.isSafeInteger(offset) || offset < defaultOffset) return null;
+  const href = document?.querySelector(bing ? "a.sb_pagN[href]" : "a#pnnext[href]")?.getAttribute("href");
+  if (href) {
+    try {
+      const next = new URL(href, parsed);
+      const nextOffset = Number(next.searchParams.get(offsetKey) || defaultOffset);
+      if (next.origin === parsed.origin && isDesktopWebSearch(next.toString())
+        && next.searchParams.get("q") === parsed.searchParams.get("q")
+        && Number.isSafeInteger(nextOffset) && nextOffset > offset) {
+        return next.toString();
+      }
+    } catch {
+      // 无效分页链接退回按偏移量推算。
+    }
+  }
   if (isBingWeb(parsed)) {
-    const href = document?.querySelector("a.sb_pagN[href]")?.getAttribute("href");
-    if (href) return new URL(href, parsed).toString();
-    const first = Number(parsed.searchParams.get("first") || "1");
-    parsed.searchParams.set("first", String(first + PAGE_SIZE));
+    parsed.searchParams.set("first", String(offset + PAGE_SIZE));
     return parsed.toString();
   }
   if (isGoogleWeb(parsed)) {
-    const start = Number(parsed.searchParams.get("start") || "0");
-    parsed.searchParams.set("start", String(start + PAGE_SIZE));
+    parsed.searchParams.set("start", String(offset + PAGE_SIZE));
     return parsed.toString();
   }
   return null;
@@ -64,11 +78,14 @@ export function createSearchSession(document, url, prefs) {
       return engine.name;
     },
     ingest(nextDocument) {
-      if (!state.autoPage || appendedPages >= MAX_APPENDED_PAGES) return { added: 0, stopped: true };
+      // 页数暂停由 pager 管理，用户可明确选择继续加载下一批。
+      if (!state.autoPage) return { added: 0, stopped: true };
       const known = new Set(listOrganic(document).map((item) => engine.itemHref(item)));
       const fresh = listOrganic(nextDocument).filter((item) => {
         const href = engine.itemHref(item);
-        return href !== "" && !known.has(href);
+        if (href === "" || known.has(href)) return false;
+        known.add(href);
+        return true;
       });
       if (fresh.length === 0) return { added: 0, stopped: true };
       const dest = document.getElementById("bsp-results") ?? engine.resultsRoot(document);

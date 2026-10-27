@@ -37,7 +37,7 @@ test("只认必应桌面网页搜索，图片/视频和首页不改", () => {
 test("同查询不同追踪参数视为同一必应搜索页", () => {
   assert.equal(
     searchPageKey("https://www.bing.com/search?q=edge&form=QBLH"),
-    searchPageKey("https://www.bing.com/search?q=edge&FPIG=ABC&first=9"),
+    searchPageKey("https://www.bing.com/search?q=edge&FPIG=ABC&first=1"),
   );
   assert.notEqual(searchPageKey(URL_Q), searchPageKey("https://www.bing.com/search?q=chrome"));
 });

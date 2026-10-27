@@ -18,7 +18,7 @@ export function isExtensionContextValid() {
 }
 
 /**
- * 只用引擎+查询词识别搜索页，忽略 rsv_/oq 等追踪参数，避免 replaceState 触发无意义 reboot。
+ * 按引擎、查询词、分页及搜索类型识别页面，忽略追踪参数，避免无意义 reboot。
  * @param {string} url
  * @returns {string}
  */
@@ -27,10 +27,14 @@ export function searchPageKey(url) {
     const parsed = new URL(url);
     const q = parsed.searchParams.get("q");
     if (/google\./.test(parsed.hostname) && parsed.pathname === "/search" && q != null) {
-      return `google:${parsed.hostname}:${q}`;
+      return JSON.stringify(["google", parsed.hostname, q,
+        parsed.searchParams.get("start") || "0",
+        ...["tbm", "udm", "tbs", "num"].map((key) => parsed.searchParams.get(key) || "")]);
     }
     if (/(^|\.)bing\.com$/.test(parsed.hostname) && parsed.pathname === "/search" && q != null) {
-      return `bing:${parsed.hostname}:${q}`;
+      return JSON.stringify(["bing", parsed.hostname, q,
+        parsed.searchParams.get("first") || "1",
+        ...["filters", "count"].map((key) => parsed.searchParams.get(key) || "")]);
     }
     return `${parsed.origin}${parsed.pathname}?${q ?? parsed.search}`;
   } catch {

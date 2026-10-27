@@ -169,16 +169,10 @@ test("谷歌取页失败提示可重试", async () => {
     autoPage: true,
   });
   let fail = true;
-  /** @type {Array<() => void>} */
-  const scheduled = [];
   const pager = createAutoPager({
     document,
     session,
     url: "https://www.google.com/search?q=chrome",
-    schedule: (fn) => {
-      scheduled.push(fn);
-      return 1;
-    },
     fetchDocument: async () => {
       if (fail) throw new Error("network");
       return parseHTML(googleResult("https://example.com/p1", "第1页")).document;
@@ -186,15 +180,17 @@ test("谷歌取页失败提示可重试", async () => {
   });
   const near = { scrollY: 0, viewportHeight: 800, listBottom: 900 };
   await pager.check(near);
-  assert.equal(document.getElementById("bsp-status").textContent, "加载失败");
+  assert.match(document.querySelector(".bsp-status-message").textContent, /加载失败|Could not load/);
   fail = false;
   await pager.check(near);
   assertNoNode(document.querySelector("a[href='https://example.com/p1']"));
   await pager.check({ scrollY: 0, viewportHeight: 800, listBottom: 2000 });
   const retried = await pager.check(near);
   assert.equal(retried.fetched, true);
-  scheduled[0]();
-  assert.equal(document.getElementById("bsp-status").hidden, true);
+  assert.equal(document.getElementById("bsp-status").hidden, false);
+  assert.match(document.querySelector(".bsp-status-message").textContent, /1/);
+  pager.dispose();
+  session.dispose();
 });
 
 test("清单匹配谷歌搜索路径且不申请落地页权限", () => {

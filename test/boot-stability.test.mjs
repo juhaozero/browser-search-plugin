@@ -13,6 +13,34 @@ function googleDoc() {
   </body></html>`).document;
 }
 
+test("同查询切换页码、搜索类型或筛选条件时重建会话，垂类会释放会话", async () => {
+  for (const [base, variants, defaultPage] of [
+    ["https://www.google.com/search?q=chrome", ["start=10", "udm=14", "tbs=qdr:d", "num=20"], "start=0"],
+    ["https://www.bing.com/search?q=chrome", ["first=11", "filters=ex1", "count=20"], "first=1"],
+  ]) {
+    const boots = [], disposed = [];
+    const lifecycle = createContentLifecycle({ isDesktopWebSearch, bootSearchPage: async (_doc, url) => {
+      boots.push(url);
+      return { dispose: () => disposed.push(url) };
+    } });
+    const document = googleDoc();
+    await lifecycle.start(document, base);
+    await lifecycle.start(document, `${base}&${defaultPage}&ei=tracking`, "navigate");
+    assert.equal(boots.length, 1);
+    for (const variant of variants) {
+      await lifecycle.start(document, `${base}&${variant}`, "navigate");
+    }
+    assert.equal(boots.length, variants.length + 1);
+    assert.equal(disposed.length, variants.length);
+    if (base.includes("google")) {
+      await lifecycle.start(document, `${base}&udm=2`, "navigate");
+      assert.equal(lifecycle.getActive(), null);
+      assert.equal(disposed.length, variants.length + 1);
+    }
+    lifecycle.disposeAll();
+  }
+});
+
 test("boot 后应有 bsp-results 且为单列居中", async () => {
   const document = googleDoc();
   const boot = await bootSearchPage(
