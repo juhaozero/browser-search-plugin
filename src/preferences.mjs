@@ -1,9 +1,23 @@
 export const DEFAULT_PREFS = {
   columnMode: "single-center",
   autoPage: true,
+  cardDensity: "comfortable",
+  maxColumnWidth: 0,
+  googleSidebar: true,
+  bingSidebar: false,
+  showAI: true,
+  adsMode: "original",
+  pagesPerBatch: 10,
+  nearBottomPx: 800,
+  autoContinue: false,
 };
 
 const COLUMN_MODES = new Set(["original", "single", "single-center", "double"]);
+
+function numberPref(value, fallback, min, max) {
+  return typeof value === "number" && Number.isFinite(value) && value >= min && value <= max
+    ? Math.round(value) : fallback;
+}
 
 /**
  * @param {unknown} raw
@@ -14,6 +28,15 @@ export function normalizePrefs(raw) {
   return {
     columnMode,
     autoPage: typeof source.autoPage === "boolean" ? source.autoPage : DEFAULT_PREFS.autoPage,
+    cardDensity: ["compact", "comfortable", "relaxed"].includes(source.cardDensity) ? source.cardDensity : DEFAULT_PREFS.cardDensity,
+    maxColumnWidth: source.maxColumnWidth === 0 ? 0 : numberPref(source.maxColumnWidth, 0, 320, 1600),
+    googleSidebar: typeof source.googleSidebar === "boolean" ? source.googleSidebar : DEFAULT_PREFS.googleSidebar,
+    bingSidebar: typeof source.bingSidebar === "boolean" ? source.bingSidebar : DEFAULT_PREFS.bingSidebar,
+    showAI: typeof source.showAI === "boolean" ? source.showAI : DEFAULT_PREFS.showAI,
+    adsMode: ["original", "collapse", "dim"].includes(source.adsMode) ? source.adsMode : DEFAULT_PREFS.adsMode,
+    pagesPerBatch: numberPref(source.pagesPerBatch, DEFAULT_PREFS.pagesPerBatch, 1, 50),
+    nearBottomPx: numberPref(source.nearBottomPx, DEFAULT_PREFS.nearBottomPx, 0, 3000),
+    autoContinue: typeof source.autoContinue === "boolean" ? source.autoContinue : DEFAULT_PREFS.autoContinue,
   };
 }
 

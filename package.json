@@ -5,7 +5,7 @@
   "scripts": {
     "test": "node --max-old-space-size=4096 --test --test-isolation=none --test-concurrency=1 \"test/**/*.test.mjs\"",
     "build": "node scripts/build.mjs",
-    "test:browser": "node --test ./test/browser-layout.mjs ./test/browser-google-header.mjs",
+    "test:browser": "node --test \"test/browser-*.mjs\"",
     "test:live": "node scripts/verify-live.mjs",
     "lint": "eslint .",
     "sync": "node scripts/sync-assets.mjs"

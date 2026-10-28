@@ -2,7 +2,7 @@ import { findLayoutShell } from "./layout-dom.mjs";
 import { ASIDE_GAP, ASIDE_IDS, ASIDE_MAX, CARD_COLUMN_GAP, CARD_GAP, CENTERED_STYLE_PROPS, DOUBLE_SHELL_MAX, RELAYOUT_FLAG, SIDE_GAP, SINGLE_SHELL_MAX, WRAPPING_SHELL_IDS } from "./layout-constants.mjs";
 import { collectHeaderBands, placeBingResultCount, placeNavBands, refreshChromeLayout, sanitizeNavChrome } from "./nav-chrome.mjs";
 import { clearHorizontalMargin, isDisplayed, isElement, measureViewport, placeAtViewportCenter, rectOf, stampCentered } from "./layout-dom.mjs";
-import { hideBingSideRails, stackBingFactRows } from "./bing-layout.mjs";
+import { bingSideRails, hideBingSideRails, stackBingFactRows } from "./bing-layout.mjs";
 import { alignGoogleSearchField, restoreGoogleSearchField } from "./search-field.mjs";
 
 /**
@@ -73,8 +73,9 @@ function shellStructure(document) {
  * @param {string} mode
  * @param {number} viewportWidth
  */
-function contentWidth(mode, viewportWidth) {
-  const target = mode === "double" ? DOUBLE_SHELL_MAX : SINGLE_SHELL_MAX;
+function contentWidth(mode, viewportWidth, maxColumnWidth = 0) {
+  const target = maxColumnWidth > 0 ? (mode === "double" ? maxColumnWidth * 2 + CARD_COLUMN_GAP : maxColumnWidth)
+    : mode === "double" ? DOUBLE_SHELL_MAX : SINGLE_SHELL_MAX;
   const usable = Math.max(0, viewportWidth - SIDE_GAP * 2);
   return Math.min(target, usable);
 }
@@ -85,6 +86,7 @@ function contentWidth(mode, viewportWidth) {
  * @param {number} viewportWidth
  */
 function layoutMetrics(document, mode, viewportWidth) {
+  const width = contentWidth(mode, viewportWidth, Number(document.documentElement.dataset.bspMaxColumnWidth) || 0);
   const maxShell = Math.max(0, viewportWidth - SIDE_GAP * 2);
   const aside = visibleAside(document);
   const shell = findLayoutShell(document);
@@ -106,7 +108,7 @@ function layoutMetrics(document, mode, viewportWidth) {
     const mainWidth = Math.max(
       minMain,
       Math.min(
-        contentWidth(mode, viewportWidth),
+        width,
         maxShell - ASIDE_GAP - asideWidth,
       ),
     );
@@ -124,7 +126,7 @@ function layoutMetrics(document, mode, viewportWidth) {
     };
   }
 
-  const mainWidth = Math.min(contentWidth(mode, viewportWidth), maxShell);
+  const mainWidth = Math.min(width, maxShell);
   return {
     mainWidth,
     asideWidth: 0,
@@ -268,7 +270,7 @@ function applyShellLayout(document, box, metrics) {
     box.style.setProperty("display", "grid", "important");
     box.style.setProperty("grid-template-columns", "var(--bsp-grid-columns, minmax(0, 1fr) minmax(0, 1fr))", "important");
     box.style.setProperty("column-gap", `${CARD_COLUMN_GAP}px`, "important");
-    box.style.setProperty("row-gap", `${CARD_GAP}px`, "important");
+    box.style.setProperty("row-gap", `var(--bsp-card-gap, ${CARD_GAP}px)`, "important");
   }
 }
 
@@ -466,11 +468,12 @@ function realign(document, layout) {
 }
 
 function visibleAside(document) {
-  // 必应右栏（旧版 #b_context / 新版 aside）直接屏蔽，不参与布局计算，
-  // 由 CSS 负责隐藏，主列独占壳宽居中，与谷歌行为一致。
   if (document.getElementById("b_results") || document.getElementById("b_header")) {
-    return null;
+    if (document.documentElement.dataset.bspBingSidebar !== "show") return null;
+    const shell = findLayoutShell(document);
+    return bingSideRails(document, shell, findResultColumn(document, shell)).find(isDisplayed) ?? null;
   }
+  if (document.documentElement.dataset.bspGoogleSidebar === "hide") return null;
   for (const id of ASIDE_IDS) {
     const el = document.getElementById(id);
     if (!el) continue;

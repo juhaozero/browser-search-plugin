@@ -116,6 +116,38 @@
           </div>
         </section>
 
+        <section class="bsp-section" aria-labelledby="bsp-appearance-title">
+          <div class="bsp-section-head"><h2 id="bsp-appearance-title" data-i18n="appearance">Appearance</h2></div>
+          <label class="bsp-field">
+            <span data-i18n="cardDensity">Card density</span>
+            <select name="cardDensity">
+              <option value="compact" data-i18n="densityCompact">Compact</option>
+              <option value="comfortable" data-i18n="densityComfortable">Comfortable</option>
+              <option value="relaxed" data-i18n="densityRelaxed">Relaxed</option>
+            </select>
+          </label>
+          <label class="bsp-field">
+            <span data-i18n="maxColumnWidth">Max column width (px)</span>
+            <input type="number" name="maxColumnWidth" min="320" max="1600" step="1" aria-describedby="bsp-width-hint">
+          </label>
+          <p class="bsp-field-hint" id="bsp-width-hint" data-i18n="widthHint">Blank = automatic; 320–1600 per column</p>
+          <details class="bsp-advanced">
+            <summary data-i18n="visibility">Sidebars, AI &amp; ads</summary>
+            <label class="bsp-check"><input type="checkbox" name="googleSidebar"><span data-i18n="googleSidebar">Google knowledge sidebar</span></label>
+            <label class="bsp-check"><input type="checkbox" name="bingSidebar"><span data-i18n="bingSidebar">Bing sidebar</span></label>
+            <label class="bsp-check"><input type="checkbox" name="showAI"><span data-i18n="showAI">Google AI Overview</span></label>
+            <label class="bsp-field">
+              <span data-i18n="adsMode">Top / bottom ads</span>
+              <select name="adsMode">
+                <option value="original" data-i18n="adsOriginal">Original</option>
+                <option value="collapse" data-i18n="adsCollapse">Collapse</option>
+                <option value="dim" data-i18n="adsDim">Dim</option>
+              </select>
+            </label>
+            <p class="bsp-field-hint" data-i18n="adsHint">Local only. Collapsed ads can be expanded.</p>
+          </details>
+        </section>
+
         <section class="bsp-section" aria-labelledby="bsp-reading-title">
           <div class="bsp-section-head">
             <h2 id="bsp-reading-title" data-i18n="reading">Reading</h2>
@@ -131,6 +163,19 @@
               <span class="bsp-switch-thumb"></span>
             </span>
           </label>
+          <details class="bsp-advanced">
+            <summary data-i18n="pagingOptions">Paging options</summary>
+            <label class="bsp-field">
+              <span data-i18n="pagesPerBatch">Pages per batch</span>
+              <input type="number" name="pagesPerBatch" min="1" max="50" step="1">
+            </label>
+            <label class="bsp-field">
+              <span data-i18n="nearBottomPx">Distance from bottom (px)</span>
+              <input type="number" name="nearBottomPx" min="0" max="3000" step="1">
+            </label>
+            <label class="bsp-check"><input type="checkbox" name="autoContinue"><span data-i18n="autoContinue">Continue after each batch</span></label>
+            <p class="bsp-field-hint" data-i18n="autoContinueHint">Off: pause at the batch limit. On: keep loading while near the bottom.</p>
+          </details>
         </section>
       </form>
     </div>

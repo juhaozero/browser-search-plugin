@@ -7,16 +7,17 @@ import { endLayoutGate } from "./layout-gate.mjs";
 import { DOM_MUTE_FLAG, RELAYOUT_FLAG } from "./layout-constants.mjs";
 import { clearCenteredLayout, realign } from "./shell-layout.mjs";
 import { attachScroll, watchResults } from "./dom-watch.mjs";
+import { createPageAppearance } from "./page-appearance.mjs";
 
 /**
  * @param {Document} document
  * @param {string} url
  * @param {{ viewportWidth?: number, parentLeft?: number }} [layout]
  * @param {{
- *   prefs?: { columnMode?: string, autoPage?: boolean },
+ *   prefs?: Partial<typeof DEFAULT_PREFS>,
  *   prefsStore?: { load: () => Promise<object>, save?: Function, subscribe?: Function },
  *   localeStore?: { load: () => Promise<string>, subscribe?: Function },
- *   fetchDocument?: (url: string) => Promise<Document>,
+ *   fetchDocument?: (url: string, signal?: AbortSignal) => Promise<Document>,
  *   attachScroll?: boolean,
  *   watchDom?: boolean,
  * }} [deps]
@@ -28,10 +29,13 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
       ? createChromePrefsStore(chrome.storage)
       : null);
   const localeStore = deps.localeStore ?? createLocaleStore(typeof chrome !== "undefined" ? chrome.storage : undefined);
-  const [rawPrefs, locale] = await Promise.all([
+  const [rawPrefs, savedLocale] = await Promise.all([
     deps.prefs ?? (store ? store.load() : DEFAULT_PREFS), localeStore.load(),
   ]);
-  const prefs = normalizePrefs(rawPrefs);
+  let prefs = normalizePrefs(rawPrefs);
+  let locale = savedLocale;
+  const appearance = createPageAppearance(document);
+  appearance.apply(prefs, locale);
   const session = createSearchSession(document, url, prefs);
   realign(document, layout);
   markActive(document, session.engine);
@@ -51,6 +55,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
     url,
     enabled: prefs.autoPage,
     locale,
+    prefs,
     fetchDocument: deps.fetchDocument ?? fetchHtmlDocument,
     mutate: (fn) => watcher.runMuted(fn),
   });
@@ -62,6 +67,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
       if (!isExtensionContextValid()) return;
       if (disposed) return;
       watcher.runMuted(() => {
+        appearance.apply(prefs, locale);
         session.refresh();
         realign(document, layout);
         markActive(document, session.engine);
@@ -75,18 +81,26 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
     if (disposed) return;
     const normalized = normalizePrefs(next);
     watcher.runMuted(() => {
+      clearCenteredLayout(document);
+      prefs = normalized;
+      appearance.apply(prefs, locale);
       session.apply(normalized);
       pager.setEnabled(normalized.autoPage);
+      pager.setPrefs(normalized);
       realign(document, layout);
       markActive(document, session.engine);
     });
+    void pager.check();
   };
 
   let disposed = false;
   let resizeTimer = 0;
   let unsubscribe = () => {};
   if (store?.subscribe) unsubscribe = store.subscribe(applyPrefs);
-  const unsubscribeLocale = localeStore.subscribe?.((next) => pager.setLocale(next)) ?? (() => {});
+  const unsubscribeLocale = localeStore.subscribe?.((next) => {
+    locale = next;
+    watcher.runMuted(() => { appearance.apply(prefs, locale); pager.setLocale(locale); });
+  }) ?? (() => {});
   const onResize = () => {
     if (disposed) return;
     if (resizeTimer) (globalThis.clearTimeout ?? clearTimeout)(resizeTimer);
@@ -126,6 +140,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
     silent(() => stopScroll());
     silent(() => pager.dispose?.());
     silent(() => clearCenteredLayout(document));
+    silent(() => appearance.dispose());
     silent(() => {
       delete document.documentElement.dataset[RELAYOUT_FLAG];
       delete document.documentElement.dataset[DOM_MUTE_FLAG];

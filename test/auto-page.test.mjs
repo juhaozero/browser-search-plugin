@@ -10,10 +10,10 @@ function page(n = 0) {
   return parseHTML(`<html lang="zh-CN"><body><div id="rso"><div class="g"><a href="https://example.com/${n}"><h3>Result</h3></a></div></div>
     <a id="pnnext" href="/search?q=test&start=${(n + 1) * 10}">Next</a></body></html>`).document;
 }
-function setup(fetchDocument) {
+function setup(fetchDocument, prefs) {
   const document = page();
   const session = createSearchSession(document, url, { columnMode: "double", autoPage: true });
-  return { document, session, pager: createAutoPager({ document, session, url, fetchDocument, locale: "zh" }) };
+  return { document, session, pager: createAutoPager({ document, session, url, fetchDocument, prefs, locale: "zh" }) };
 }
 
 test("失败提示保留，点击重试不会要求先滚离底部，忙碌时不重复请求", async () => {
@@ -61,6 +61,29 @@ test("追加十页后暂停，点击继续后可加载下一批并再次暂停",
     assert.equal(document.getElementById("bsp-status").hidden, true);
     pager.setEnabled(true);
     assert.equal(document.getElementById("bsp-status").hidden, false);
+  } finally { pager.dispose(); session.dispose(); }
+});
+
+test("可配置每批页数、触底距离与自动继续，并能在暂停后更新配置", async () => {
+  let requests = 0;
+  const { session, pager } = setup(async () => page(++requests), { pagesPerBatch: 2, nearBottomPx: 0 });
+  try {
+    assert.equal((await pager.check(near)).fetched, false);
+    pager.setPrefs({ pagesPerBatch: 2, nearBottomPx: 100 });
+    await pager.check(near);
+    assert.equal(session.appendedPages, 1);
+    await pager.check(near);
+    assert.equal(pager.stopped, true);
+    assert.equal((await pager.check(near)).fetched, false);
+    pager.setPrefs({ pagesPerBatch: 1, nearBottomPx: 100, autoContinue: true });
+    assert.equal(pager.stopped, false);
+    await pager.check(near);
+    await pager.check(near);
+    assert.equal(session.appendedPages, 4);
+    assert.equal(pager.stopped, false);
+    pager.setPrefs({ pagesPerBatch: 1, nearBottomPx: 100, autoContinue: false });
+    await pager.check(near);
+    assert.equal(pager.stopped, true);
   } finally { pager.dispose(); session.dispose(); }
 });
 

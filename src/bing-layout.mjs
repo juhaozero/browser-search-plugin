@@ -1,4 +1,4 @@
-import { isElement, stampCentered } from "./layout-dom.mjs";
+import { isElement, isOwnDomElement, stampCentered } from "./layout-dom.mjs";
 
 /**
  * 百科结果里的横排知识卡（基本用法 | 配图 | 短语）在单列里会贴住标题。
@@ -86,7 +86,16 @@ const BING_RAIL_KEEP_IDS = new Set(["b_tween", "b_topw", "b_header", "b_results"
  * @param {HTMLElement | null} column
  */
 function hideBingSideRails(document, shell, column) {
-  if (!document.getElementById("b_results") && !document.getElementById("b_header")) return;
+  if (document.documentElement.dataset.bspBingSidebar === "show") return;
+  for (const child of bingSideRails(document, shell, column)) {
+    stampCentered(child);
+    child.style.setProperty("display", "none", "important");
+  }
+}
+
+function bingSideRails(document, shell, column) {
+  if (!document.getElementById("b_results") && !document.getElementById("b_header")) return [];
+  const rails = [];
   /** @type {HTMLElement[]} */
   const scopes = [];
   const add = (el) => {
@@ -101,15 +110,16 @@ function hideBingSideRails(document, shell, column) {
   for (const scope of scopes) {
     for (const child of scope.children) {
       if (!isElement(child)) continue;
+      if (isOwnDomElement(child)) continue;
       if (child === column || child.contains(column) || column?.contains(child)) continue;
       if (BING_RAIL_KEEP_IDS.has(child.id)) continue;
       if (child.tagName === "SCRIPT" || child.tagName === "STYLE") continue;
       if (child.id === "bsp-results" || child.dataset?.bspResultsHost === "1") continue;
       if (!shouldHideBingSibling(child, column)) continue;
-      stampCentered(child);
-      child.style.setProperty("display", "none", "important");
+      if (!rails.includes(child)) rails.push(child);
     }
   }
+  return rails;
 }
 
 /**
@@ -118,6 +128,7 @@ function hideBingSideRails(document, shell, column) {
  * @param {HTMLElement | null} column
  */
 function shouldHideBingSibling(child, column) {
+  if (child.matches("#b_adTop, #b_adBottom, .b_ad, .b_adTop, .b_adBottom, .b_pag")) return false;
   if (child.tagName === "ASIDE" || child.id === "b_context") return true;
   if (child.getAttribute("role") === "complementary") return true;
   if (child.classList?.contains("b_entityTP") || child.classList?.contains("lite-entcard")) return true;
@@ -129,4 +140,4 @@ function shouldHideBingSibling(child, column) {
   return !childIsBeforeColumn;
 }
 
-export { hideBingSideRails, stackBingFactRows };
+export { bingSideRails, hideBingSideRails, stackBingFactRows };

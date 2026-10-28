@@ -72,6 +72,9 @@ test("默认偏好是单列居中、自动翻页开", () => {
   assert.deepEqual(DEFAULT_PREFS, {
     columnMode: "single-center",
     autoPage: true,
+    cardDensity: "comfortable", maxColumnWidth: 0,
+    googleSidebar: true, bingSidebar: false, showAI: true, adsMode: "original",
+    pagesPerBatch: 10, nearBottomPx: 800, autoContinue: false,
   });
   assert.equal("highlight" in normalizePrefs({ highlight: true }), false);
 });
@@ -104,6 +107,7 @@ test("同步存储失败时退回本机保存并读回", async () => {
   const saved = await store.save({ columnMode: "double", highlight: true, autoPage: true });
   assert.equal(saved.columnMode, "double");
   assert.deepEqual(await store.load(), {
+    ...DEFAULT_PREFS,
     columnMode: "double",
     autoPage: true,
   });
@@ -144,15 +148,15 @@ test("谷歌和必应共用同一套偏好", async () => {
   bingBoot.dispose();
 });
 
-test("弹窗可四选一列模式并开关自动翻页，没有高亮和页数设置", async () => {
+test("弹窗可切换列模式和自动翻页，并显示翻页参数", async () => {
   const store = createMemoryPrefsStore();
   const { document } = parseHTML(popupHtml());
   const popup = await mountPopup(document, { prefsStore: store, localeStore: createLocaleStore() });
   assert.equal(document.querySelector("input[name='columnMode'][value='single-center']").checked, true);
   assert.equal(document.querySelector("input[name='autoPage']").checked, true);
   assertNoNode(document.querySelector("input[name='highlight']"));
-  assert.equal(document.body.textContent.includes("页数"), false);
-  assertNoNode(document.querySelector("input[name='maxPages']"));
+  assert.equal(document.querySelector("input[name='pagesPerBatch']").value, "10");
+  assert.equal(document.querySelector("input[name='nearBottomPx']").value, "800");
 
   for (const input of document.querySelectorAll("input[name='columnMode']")) {
     input.checked = input.value === "double";
@@ -160,10 +164,12 @@ test("弹窗可四选一列模式并开关自动翻页，没有高亮和页数�
   document.querySelector("input[name='autoPage']").checked = false;
   await popup.commit();
   assert.deepEqual(await store.load(), {
+    ...DEFAULT_PREFS,
     columnMode: "double",
     autoPage: false,
   });
   assert.deepEqual(readForm(document), {
+    ...DEFAULT_PREFS,
     columnMode: "double",
     autoPage: false,
   });
@@ -196,20 +202,7 @@ test("清单有弹窗和 storage 权限", () => {
 });
 
 function popupHtml() {
-  return `<!doctype html><html lang="en" data-locale="en"><body>
-    <div class="bsp-lang" role="group">
-      <button type="button" data-locale="en" data-i18n="langEn" aria-pressed="true">EN</button>
-      <button type="button" data-locale="zh" data-i18n="langZh" aria-pressed="false">中文</button>
-    </div>
-    <p data-i18n="tagline">Cleaner, more readable search layouts</p>
-    <form id="bsp-prefs">
-      <label><input type="radio" name="columnMode" value="original"><span data-i18n="modeOriginal">Original</span></label>
-      <label><input type="radio" name="columnMode" value="single"><span data-i18n="modeSingle">Single</span></label>
-      <label><input type="radio" name="columnMode" value="single-center"><span data-i18n="modeSingleCenter">Centered</span></label>
-      <label><input type="radio" name="columnMode" value="double"><span data-i18n="modeDouble">Dual</span></label>
-      <label><input type="checkbox" name="autoPage"><span data-i18n="autoPage">Auto page</span></label>
-    </form>
-  </body></html>`;
+  return readFileSync(new URL("../extension/popup.html", import.meta.url), "utf8");
 }
 
 function googlePage(query) {

@@ -327,3 +327,30 @@ body {
     transition: none;
   }
 }
+
+.bsp-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 130px;
+  gap: 10px;
+  align-items: center;
+  margin-top: 10px;
+}
+.bsp-field input, .bsp-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 6px;
+  border: 1px solid var(--bsp-line);
+  border-radius: 6px;
+  background: var(--bsp-surface);
+  color: var(--bsp-ink);
+  font: inherit;
+}
+.bsp-field :focus-visible, .bsp-check input:focus-visible, .bsp-advanced summary:focus-visible {
+  outline: 2px solid var(--bsp-primary);
+  outline-offset: 2px;
+}
+.bsp-field-hint { margin: 6px 0 0; color: var(--bsp-muted); font-size: 11px; }
+.bsp-advanced { margin-top: 12px; }
+.bsp-advanced summary { cursor: pointer; font-weight: 600; }
+.bsp-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.bsp-check input { accent-color: var(--bsp-primary); }

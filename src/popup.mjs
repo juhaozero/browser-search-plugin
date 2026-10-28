@@ -37,6 +37,7 @@ export async function mountPopup(document, deps = {}) {
   form.addEventListener("change", () => {
     void commit();
   });
+  form.addEventListener("submit", event => event.preventDefault());
 
   for (const btn of document.querySelectorAll("[data-locale]")) {
     btn.addEventListener("click", () => {
@@ -67,15 +68,23 @@ export async function mountPopup(document, deps = {}) {
 
 /**
  * @param {Document} document
- * @param {{ columnMode: string, autoPage: boolean }} prefs
+ * @param {Partial<typeof DEFAULT_PREFS>} prefs
  */
 export function paint(document, prefs) {
   const normalized = normalizePrefs(prefs);
   for (const input of document.querySelectorAll("input[name='columnMode']")) {
     input.checked = input.value === normalized.columnMode;
   }
-  const autoPage = document.querySelector("input[name='autoPage']");
-  if (autoPage) autoPage.checked = normalized.autoPage;
+  for (const [name, value] of Object.entries(normalized)) {
+    if (name === "columnMode") continue;
+    const input = document.querySelector(`[name='${name}']`);
+    if (!input) continue;
+    if (input.type === "checkbox") input.checked = value;
+    else if (input.tagName === "SELECT") {
+      for (const option of input.querySelectorAll("option")) if (option.value === value) option.selected = true;
+    }
+    else input.value = name === "maxColumnWidth" && value === 0 ? "" : String(value);
+  }
 }
 
 /**
@@ -83,11 +92,15 @@ export function paint(document, prefs) {
  */
 export function readForm(document) {
   const column = [...document.querySelectorAll("input[name='columnMode']")].find((input) => input.checked);
-  const autoPage = document.querySelector("input[name='autoPage']");
-  return normalizePrefs({
-    columnMode: column?.value ?? DEFAULT_PREFS.columnMode,
-    autoPage: Boolean(autoPage?.checked),
-  });
+  const next = { ...DEFAULT_PREFS, columnMode: column?.value ?? DEFAULT_PREFS.columnMode };
+  for (const [name, fallback] of Object.entries(DEFAULT_PREFS)) {
+    if (name === "columnMode") continue;
+    const input = document.querySelector(`[name='${name}']`);
+    if (!input) continue;
+    next[name] = typeof fallback === "boolean" ? Boolean(input.checked)
+      : typeof fallback === "number" ? Number(input.value) : input.value;
+  }
+  return normalizePrefs(next);
 }
 
 if (typeof document !== "undefined" && document.getElementById("bsp-prefs")) {

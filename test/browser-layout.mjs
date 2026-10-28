@@ -117,9 +117,9 @@ test("真实 Chromium：AI、数量、视口、动态插入、还原与观察器
     assert.equal((await geometry()).cards.length,10);
     assert.equal(await page.$("#bsp-results #ai-overview"),null);
     await page.evaluate(()=>boot.dispose());
-    // Bing original mode must retain the engine's native 648px width.
+    // Original mode retains native width; content visibility is a separate preference.
     await load({engine:"bing"},1920,"double");
-    await page.evaluate(()=>boot.applyPrefs({columnMode:"original",autoPage:false}));
+    await page.evaluate(()=>boot.applyPrefs({columnMode:"original",autoPage:false,bingSidebar:true}));
     assert.equal(await page.$eval("#b_results",el=>el.getBoundingClientRect().width),648);
     assert.notEqual(await page.$eval("#b_context",el=>getComputedStyle(el).display),"none");
     await page.evaluate(()=>boot.dispose());

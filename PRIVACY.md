@@ -1,6 +1,6 @@
 # SearchLayout Privacy Policy
 
-Last updated: 2026-09-23
+Last updated: 2026-10-28
 
 This Privacy Policy describes how the **SearchLayout** Chrome extension (“the Extension”) handles information when you install and use it.
 
@@ -25,6 +25,9 @@ The Extension stores settings you choose in the popup, for example:
 
 - Column layout mode (original / single / single-center / double)
 - Auto-page on/off
+- Card density and maximum column width
+- Sidebar and AI Overview visibility, and local ad presentation (unchanged / collapsed / dimmed)
+- Pages per batch, bottom threshold, automatic continuation, and interface language
 
 These preferences are saved with `chrome.storage` (`sync` when available, otherwise `local`). If Chrome Sync is enabled for extensions, Chrome may sync these preferences across your signed-in devices according to Google’s own policies. The Extension developer does not receive a copy of these preferences on a developer-operated server.
 
@@ -34,6 +37,7 @@ On matching Google and Bing **desktop web search result pages**, the Extension�
 
 - Read the structure of organic search result items on the page
 - Rearrange those items in the page DOM for the selected layout
+- Show or hide sidebar / AI containers, and locally fold or dim explicitly marked advertising areas without deleting organic results
 - Optionally request the **next search results page in your browser** (same-origin request with your existing session cookies) to append more organic results on the current page
 
 This processing happens locally in your browser to provide the Extension’s features. Search queries, result titles/snippets/URLs, and page HTML are **not** uploaded to a developer-operated server by the Extension.

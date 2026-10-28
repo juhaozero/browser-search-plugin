@@ -1,8 +1,8 @@
 import { nextPageUrl } from "./search-session.mjs";
 import { DEFAULT_LOCALE, normalizeLocale, t } from "./i18n.mjs";
+import { DEFAULT_PREFS, normalizePrefs } from "./preferences.mjs";
 
-const NEAR_BOTTOM_PX = 800;
-const PAGE_BATCH_SIZE = 10;
+const NEAR_BOTTOM_PX = DEFAULT_PREFS.nearBottomPx;
 
 /**
  * @param {{
@@ -15,6 +15,7 @@ const PAGE_BATCH_SIZE = 10;
  *   url: string,
  *   enabled?: boolean,
  *   locale?: string,
+ *   prefs?: object,
  *   fetchDocument: (url: string, signal?: AbortSignal) => Promise<Document>,
  *   nearBottomPx?: number,
  *   mutate?: <T>(fn: () => T) => T,
@@ -23,7 +24,8 @@ const PAGE_BATCH_SIZE = 10;
 export function createAutoPager(options) {
   const document = options.document;
   const session = options.session;
-  const nearBottomPx = options.nearBottomPx ?? NEAR_BOTTOM_PX;
+  let config = normalizePrefs(options.prefs);
+  let nearBottomPx = options.nearBottomPx ?? config.nearBottomPx;
   const mutate = options.mutate ?? ((fn) => fn());
 
   let enabled = options.enabled ?? true;
@@ -35,14 +37,14 @@ export function createAutoPager(options) {
   let disposed = false;
   let needLeaveBottom = false;
   let tip = null;
-  let pageLimit = PAGE_BATCH_SIZE;
+  let pageLimit = config.pagesPerBatch;
   let status = "loaded";
   let locale = normalizeLocale(options.locale ?? DEFAULT_LOCALE);
   const statusKeys = { loading: "pageLoading", failed: "pageFailed", limit: "pageLimit", end: "pageEnd" };
   /** @type {AbortController | null} */
   let inflight = null;
 
-  return {
+  const api = {
     get enabled() {
       return enabled;
     },
@@ -55,6 +57,16 @@ export function createAutoPager(options) {
       enabled = Boolean(value);
       if (!enabled) clearTip();
       else if (session.appendedPages || status !== "loaded") renderStatus();
+    },
+    setPrefs(next) {
+      const previousBatch = config.pagesPerBatch;
+      config = normalizePrefs(next);
+      nearBottomPx = config.nearBottomPx;
+      if (previousBatch !== config.pagesPerBatch || (status === "limit" && config.autoContinue)) {
+        pageLimit = session.appendedPages + config.pagesPerBatch;
+        if (status === "limit") { stopped = false; status = "loaded"; }
+      }
+      if (tip && !tip.hidden) renderStatus();
     },
     get stopped() {
       return stopped;
@@ -85,6 +97,7 @@ export function createAutoPager(options) {
       removeTip();
     },
   };
+  return api;
 
   function retry() {
     if (disposed || !enabled || !session.autoPage || busy || stopped) return Promise.resolve({ fetched: false });
@@ -94,7 +107,7 @@ export function createAutoPager(options) {
 
   function continueLoading() {
     if (disposed || !enabled || !session.autoPage || busy || status !== "limit") return Promise.resolve({ fetched: false });
-    pageLimit += PAGE_BATCH_SIZE;
+    pageLimit = session.appendedPages + config.pagesPerBatch;
     stopped = false;
     return retry();
   }
@@ -131,8 +144,10 @@ export function createAutoPager(options) {
         currentUrl = next;
         currentDocument = nextDocument;
       }
+      if (config.autoContinue && session.appendedPages >= pageLimit) pageLimit += config.pagesPerBatch;
       stopped = result.stopped || session.appendedPages >= pageLimit;
       showTip(result.stopped ? "end" : stopped ? "limit" : "loaded");
+      if (config.autoContinue && result.added > 0 && !stopped) queueMicrotask(() => { void api.check(); });
       return { ...result, fetched: result.added > 0, stopped };
     } catch (error) {
       if (disposed || !enabled || !session.autoPage || isAbortError(error)) return { fetched: false, failed: false };

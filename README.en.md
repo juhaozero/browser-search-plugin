@@ -12,8 +12,14 @@ A Chrome extension that makes **Google and Bing desktop web search results** eas
 - **Auto-page**: When you scroll near the bottom, the next page of organic results is appended on the same page
 - **Loading status**: See the number of appended pages, retry failed requests, continue after each 10-page pause, or return to the top
 - **Instant preferences**: Change settings from the toolbar popup; stored in `chrome.storage` and can sync with your Chrome account
+- **Reading appearance**: Compact / Comfortable / Relaxed, with an optional 320–1600px maximum per-column width (blank uses automatic width)
+- **Visibility controls**: Google knowledge sidebar, Bing sidebar, and Google AI Overview
+- **Ads**: Keep, collapse, or dim explicitly identified top/bottom ad areas locally; collapsed ads can be expanded and original nodes are restored when disabled
+- **Pagination settings**: 1–50 pages per batch, 0–3000px bottom threshold, and optional automatic continuation while near the bottom
 
 Defaults: single-center layout + auto-page on.
+
+New defaults preserve the existing card layout: comfortable density, automatic width, Google sidebar and AI visible, Bing sidebar hidden, ads unchanged, 10 pages per batch, an 800px threshold, and a pause after each batch. Existing preferences receive these defaults automatically. Sidebar, AI and ad visibility are independent of column mode, including Original. Visibility settings do not block engine requests. Ad handling uses explicit engine markers, never text matching; unrecognized structures are left unchanged.
 
 ## Scope
 

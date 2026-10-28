@@ -41,18 +41,45 @@ html[data-bsp-active] nav.b_scopebar {
   min-width: 0 !important;
 }
 
-/* 必应右栏（深入了解 / 知识卡）直接隐藏，主列独占壳宽。
+/* 按偏好隐藏必应右栏（深入了解 / 知识卡）。
    新版知识卡不一定是 #b_context 或直接子级 aside。 */
-html[data-bsp-active] #b_context,
-html[data-bsp-active] #b_content > aside,
-html[data-bsp-active] #b_mcw > aside,
-html[data-bsp-active] #b_content > .b_entityTP,
-html[data-bsp-active] #b_content > .lite-entcard,
-html[data-bsp-active] #b_results ~ aside,
-html[data-bsp-active] #b_results ~ .b_entityTP,
-html[data-bsp-active] #b_results ~ .lite-entcard {
+html[data-bsp-bing-sidebar="hide"] #b_context,
+html[data-bsp-bing-sidebar="hide"] #b_content > aside,
+html[data-bsp-bing-sidebar="hide"] #b_mcw > aside,
+html[data-bsp-bing-sidebar="hide"] #b_content > .b_entityTP,
+html[data-bsp-bing-sidebar="hide"] #b_content > .lite-entcard,
+html[data-bsp-bing-sidebar="hide"] #b_results ~ aside,
+html[data-bsp-bing-sidebar="hide"] #b_results ~ .b_entityTP,
+html[data-bsp-bing-sidebar="hide"] #b_results ~ .lite-entcard {
   display: none !important;
 }
+
+html[data-bsp-google-sidebar="hide"] #rhs,
+html[data-bsp-ai="hide"] #Odp5De,
+html[data-bsp-ai="hide"] [data-attrid="SGE"],
+html[data-bsp-ai="hide"] [data-attrid="AIOverview"],
+html[data-bsp-ai="hide"] [data-ai-overview] {
+  display: none !important;
+}
+
+html[data-bsp-density="compact"] {
+  --bsp-card-gap: 12px;
+  --bsp-card-pad-y: 10px;
+  --bsp-card-pad-x: 14px;
+}
+
+html[data-bsp-density="relaxed"] {
+  --bsp-card-gap: 30px;
+  --bsp-card-pad-y: 26px;
+  --bsp-card-pad-x: 28px;
+}
+
+html[data-bsp-ads="dim"] [data-bsp-ad-region] { opacity: 0.45; }
+html[data-bsp-ads="dim"] [data-bsp-ad-region]:hover,
+html[data-bsp-ads="dim"] [data-bsp-ad-region]:focus-within { opacity: 1; }
+.bsp-ad-fold > summary { cursor: pointer; padding: 10px 0; font-size: 14px; }
+.bsp-ad-fold { width: 100%; }
+html[data-bsp-ads="collapse"] [data-bsp-ad-region] { height: auto !important; min-height: 0 !important; }
 
 /*
  * 必应核心容器常态保持 block：
