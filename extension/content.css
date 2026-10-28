@@ -8,15 +8,16 @@ html:not([data-bsp-ready]) body {
 }
 
 html[data-bsp-active] {
-  /* —— 调卡片/列宽：改这些变量即可（壳宽还需同步 src/content-boot.mjs 常量）—— */
+  /* BEGIN GENERATED LAYOUT: edit src/layout-constants.mjs */
   --bsp-single-max: 1100px;
   --bsp-double-max: 1320px;
   --bsp-card-gap: 22px;
   --bsp-card-column-gap: 24px;
+  --bsp-side-gap: 64px;
+  /* END GENERATED LAYOUT */
   --bsp-card-pad-y: 18px;
   --bsp-card-pad-x: 22px;
   --bsp-card-radius: 14px;
-  --bsp-side-gap: 64px;
 }
 
 html[data-bsp-active],

@@ -13,6 +13,60 @@ import { DEFAULT_LOCALE, createLocaleStore } from "../src/i18n.mjs";
 import { mountPopup, readForm } from "../src/popup.mjs";
 import { assertNoNode } from "./assert-dom.mjs";
 
+test("boot 与即时设置共用偏好校验，非法列模式安全回退", async () => {
+  for (const raw of [null, "invalid", { columnMode: "unknown", autoPage: "yes" }]) {
+    const { document } = parseHTML(googlePage("test"));
+    const boot = await bootSearchPage(document, "https://www.google.com/search?q=test", {}, {
+      prefsStore: { load: async () => raw }, attachScroll: false, watchDom: false,
+    });
+    assert.equal(document.getElementById("bsp-results").dataset.mode, DEFAULT_PREFS.columnMode);
+    assert.equal(boot.session.autoPage, true);
+    boot.applyPrefs({ columnMode: "double", autoPage: false });
+    boot.applyPrefs({ columnMode: "unknown", autoPage: "no" });
+    assert.equal(document.getElementById("bsp-results").dataset.mode, DEFAULT_PREFS.columnMode);
+    assert.equal(boot.pager.enabled, true);
+    boot.dispose();
+  }
+});
+
+test("状态条使用用户 locale，并在语言切换时即时更新，保留搜索页 lang", async () => {
+  const localeStore = createLocaleStore();
+  await localeStore.save("zh");
+  const { document } = parseHTML(googlePage("test"));
+  document.documentElement.lang = "en";
+  const boot = await bootSearchPage(document, "https://www.google.com/search?q=test", {}, {
+    localeStore, attachScroll: false, watchDom: false,
+    fetchDocument: async () => { throw new Error("offline"); },
+  });
+  await boot.pager.check({ scrollY: 0, viewportHeight: 800, listBottom: 900 });
+  assert.equal(document.querySelector("#bsp-status button").textContent, "重试");
+  await localeStore.save("en");
+  assert.equal(document.querySelector("#bsp-status button").textContent, "Retry");
+  assert.equal(document.documentElement.lang, "en");
+  boot.dispose();
+  await localeStore.save("zh");
+  assert.equal(document.getElementById("bsp-status"), null);
+});
+
+test("locale storage 变更监听过滤无关事件并可解除", () => {
+  const listeners = new Set();
+  const storage = { onChanged: {
+    addListener: listener => listeners.add(listener),
+    removeListener: listener => listeners.delete(listener),
+  } };
+  const store = createLocaleStore(storage);
+  const values = [];
+  const unsubscribe = store.subscribe(value => values.push(value));
+  const notify = (changes, area) => { for (const listener of listeners) listener(changes, area); };
+  notify({ uiLocale: { newValue: "zh" } }, "sync");
+  notify({ prefs: { newValue: {} } }, "sync");
+  notify({ uiLocale: { newValue: "en" } }, "session");
+  notify({ uiLocale: { newValue: "en" } }, "local");
+  unsubscribe();
+  assert.equal(listeners.size, 0);
+  assert.deepEqual(values, ["zh", "en"]);
+});
+
 test("默认偏好是单列居中、自动翻页开", () => {
   assert.deepEqual(normalizePrefs({}), DEFAULT_PREFS);
   assert.deepEqual(DEFAULT_PREFS, {

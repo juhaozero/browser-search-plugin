@@ -35,9 +35,9 @@ npm install
 npm run build
 ```
 
-1. 打开 Chrome → `chrome://extensions`
-2. 开启「开发者模式」
-3. 「加载已解压的扩展程序」→ 选择本仓库的 `extension` 或 `dist` 目录
+2. 打开 Chrome → `chrome://extensions`
+3. 开启「开发者模式」
+4. 「加载已解压的扩展程序」→ 选择本仓库的 `extension` 或 `dist` 目录
 
 修改源码后重新执行 `npm run build`，再在扩展页点击刷新。
 
@@ -47,11 +47,29 @@ npm run build
 | --------------- | --------------------------------------------------------- |
 | `npm run build` | 用 esbuild 打包 `content.js` / `popup.js`，并产出 `dist/` |
 | `npm test`      | 运行 Node 内置测试（linkedom）                            |
+| `npm run lint` | ESLint 检查源码、脚本与测试 |
+| `npm run sync` | 同步版本、内容脚本域名和 CSS 布局常量 |
+| `npm run test:browser` | 本机 Chromium 布局回归 |
+| `npm run test:live` | 真实页面验证，先构建；可能被搜索引擎验证页面阻断 |
+
+开发环境要求 Node.js 24+。`npm test` 自动发现 `test/` 下所有 `*.test.mjs`，浏览器测试单独运行。
+
+`extension/manifest.json` 的版本号为唯一来源，发版只修改这里；运行 `npm run sync` 或 `npm run build` 后提交同步的 `package.json` 与 `package-lock.json`。域名权限统一维护在 `src/search-hosts.mjs`，布局尺寸统一维护在 `src/layout-constants.mjs`，构建时同步 manifest 与 CSS 生成区。状态条与弹窗共用 `uiLocale`，切换语言后即时更新。
+
+PR 与推送通过 GitHub Actions 执行 lint、单元测试、构建和生成文件一致性检查。浏览器及真实页面检查可在 Actions 手动运行时勾选。
 
 主要目录：
 
 ```text
 src/                 # 源码（content / popup / session / boot…）
+  boot.mjs           # 会话、偏好、语言与 dispose 装配
+  shell-layout.mjs   # 结果壳、列宽与侧栏布局
+  nav-chrome.mjs     # 顶栏与导航对齐
+  search-field.mjs   # Google 搜索框对齐及还原
+  bing-layout.mjs    # Bing 事实行与侧栏处理
+  dom-watch.mjs      # 观察器、静默改写与滚动监听
+  layout-dom.mjs     # 共用 DOM 几何操作
+  content-boot.mjs   # 旧导入路径的兼容导出
 extension/           # 可加载的扩展目录（manifest、样式、图标、构建产物）
 test/                # 测试
 scripts/build.mjs    # 构建脚本

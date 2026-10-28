@@ -13,7 +13,7 @@ function page(n = 0) {
 function setup(fetchDocument) {
   const document = page();
   const session = createSearchSession(document, url, { columnMode: "double", autoPage: true });
-  return { document, session, pager: createAutoPager({ document, session, url, fetchDocument }) };
+  return { document, session, pager: createAutoPager({ document, session, url, fetchDocument, locale: "zh" }) };
 }
 
 test("失败提示保留，点击重试不会要求先滚离底部，忙碌时不重复请求", async () => {

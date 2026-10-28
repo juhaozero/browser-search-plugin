@@ -47,6 +47,14 @@ After code changes, run `npm run build` again and click **Reload** on the extens
 | --------------- | --------------------------------------------------------------- |
 | `npm run build` | Bundle `content.js` / `popup.js` with esbuild and write `dist/` |
 | `npm test`      | Run Node’s built-in test runner (linkedom)                      |
+| `npm run lint` | Lint source, scripts and tests |
+| `npm run sync` | Synchronize versions, host permissions and CSS dimensions |
+| `npm run test:browser` | Run local Chromium layout regression tests |
+| `npm run test:live` | Check live search pages after building; verification pages may block access |
+
+Use Node.js 24+. Unit tests automatically discover `test/**/*.test.mjs`; browser tests run separately. The manifest version is authoritative: change only `extension/manifest.json`, then run `npm run sync` or `npm run build` and commit the synchronized package and lockfile. Supported hosts live in `src/search-hosts.mjs`; shared layout dimensions live in `src/layout-constants.mjs`. The build updates manifest matches and the generated CSS block. Popup and loading status share the saved `uiLocale` and update immediately.
+
+PRs and pushes run lint, unit tests, build and generated-file consistency checks in GitHub Actions. Browser and live checks are optional workflow-dispatch inputs. Layout implementation is separated into boot, shell, navigation, search field, Bing and DOM observer modules; `content-boot.mjs` preserves the original exports.
 
 Layout:
 

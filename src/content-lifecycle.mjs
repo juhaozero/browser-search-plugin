@@ -96,7 +96,7 @@ export function createContentLifecycle(deps) {
       // ignore
     }
 
-    let next = null;
+    let next;
     try {
       next = await deps.bootSearchPage(document, url);
     } catch {

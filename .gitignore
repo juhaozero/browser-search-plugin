@@ -1,37 +1,23 @@
-# Logs
-logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-
-node_modules
-dist
-# popup.js and content.js are build outputs
+# Dependencies and generated extension bundles
+node_modules/
+dist/
 extension/content.js
 extension/popup.js
-dist-ssr
+
+# Local browser reports, screenshots, and release archives
+/.scratch/
+*.zip
 *.local
 
-# Copied by vite from node_modules on dev/build
-/public/tesseract/
+# Logs
+logs/
+*.log
 
-# Runtime portable data (keep example only)
-/data/*
-!/data/.gitkeep
-!/data/config.toml.example
-src-tauri/target
-# Editor
+# Editor and OS files
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
 .DS_Store
+Thumbs.db
 *.suo
-*.ntvs*
-*.njsproj
-*.sln
 *.sw?
-/.scratch
-*.zip

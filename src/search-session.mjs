@@ -1,3 +1,5 @@
+import { GOOGLE_HOSTS, BING_HOSTS } from "./search-hosts.mjs";
+
 const PAGE_SIZE = 10;
 
 /**
@@ -342,7 +344,8 @@ function isBingOrganic(element) {
  * @param {URL} url
  */
 function isGoogleWeb(url) {
-  if (!/^(www\.)?google\.(com|co\.[a-z]{2}|com\.[a-z]{2}|[a-z]{2})$/i.test(url.hostname)) return false;
+  if (!GOOGLE_HOSTS.includes(url.hostname)) return false;
+  if (url.protocol !== "https:") return false;
   if (url.pathname !== "/search") return false;
   if (!url.searchParams.get("q")) return false;
   if (url.searchParams.has("tbm")) return false;
@@ -355,7 +358,8 @@ function isGoogleWeb(url) {
  * @param {URL} url
  */
 function isBingWeb(url) {
-  if (!/^(www\.|cn\.)?bing\.com$/.test(url.hostname)) return false;
+  if (!BING_HOSTS.includes(url.hostname)) return false;
+  if (url.protocol !== "https:") return false;
   if (url.pathname !== "/search") return false;
   return Boolean(url.searchParams.get("q"));
 }

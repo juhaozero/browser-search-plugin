@@ -71,8 +71,6 @@ test("壳宽未变时保留引擎更新的搜索顶栏样式", () => {
   `);
   const box = document.getElementById("bsp-results");
   alignSingleCenter(box, 1400);
-  const expected = contentWidth("single-center", 1400);
-  const left = Math.max(32, Math.round((1400 - expected) / 2));
   const form = document.getElementById("searchform");
   // 模拟谷歌把搜索栏改回全宽居左
   form.style.setProperty("width", "100%");
@@ -91,8 +89,6 @@ test("晚到的搜索顶栏保持原生布局", () => {
   `);
   const box = document.getElementById("bsp-results");
   alignSingleCenter(box, 1400);
-  const expected = contentWidth("single-center", 1400);
-  const left = Math.max(32, Math.round((1400 - expected) / 2));
 
   const form = document.createElement("div");
   form.id = "searchform";

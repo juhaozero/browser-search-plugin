@@ -16,7 +16,9 @@ const bundle = await esbuild.build({ stdin: {
 }, bundle: true, write: false, format: "iife", globalName: "SearchLayoutLive" });
 const css = await readFile("extension/content.css", "utf8");
 await mkdir(".scratch/live", { recursive: true });
-const browser = await puppeteer.launch({ executablePath, headless: true, timeout: 20000, pipe: true, enableExtensions: true });
+const browser = await puppeteer.launch({ executablePath, headless: true, timeout: 20000, pipe: true, enableExtensions: true,
+  args: process.env.BROWSER_NO_SANDBOX === "1" ? ["--no-sandbox", "--disable-gpu"] : [],
+});
 const report = [];
 try {
   for (const engine of (process.env.LIVE_PACKAGED_ONLY ? [] : process.env.LIVE_ENGINE ? [process.env.LIVE_ENGINE] : ["google", "bing"])) {
@@ -145,9 +147,16 @@ try {
     await installedPage.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await installedPage.waitForFunction(() => /重试|Retry/.test(document.querySelector("#bsp-status")?.textContent ?? ""), { polling: 100, timeout: 20000 });
     packaged.checks.push("scroll-triggered-failure");
+    await installedPage.evaluate(() => { document.documentElement.lang = "en"; });
+    await popup.evaluate(() => chrome.storage.sync.set({ uiLocale: "zh" }));
+    await installedPage.waitForFunction(() => document.querySelector("#bsp-status button")?.textContent === "重试", { polling: 100 });
+    await popup.evaluate(() => chrome.storage.sync.set({ uiLocale: "en" }));
+    await installedPage.waitForFunction(() => document.querySelector("#bsp-status button")?.textContent === "Retry", { polling: 100 });
+    assert.equal(await installedPage.evaluate(() => document.documentElement.lang), "en");
+    packaged.checks.push("locale-live-status");
     failRequest = false;
     await installedPage.locator("#bsp-status button").filter(button => /Retry|重试/.test(button.textContent)).click();
-    await installedPage.waitForFunction(() => /没有更多新结果|No more new results|已追加 [1-9]|[1-9] more page/.test(document.querySelector("#bsp-status")?.textContent ?? ""), { polling: 100, timeout: 20000 });
+    await installedPage.waitForFunction(() => /没有更多新结果|No more new results|已追加 [1-9]|Pages added: [1-9]/.test(document.querySelector("#bsp-status")?.textContent ?? ""), { polling: 100, timeout: 20000 });
     packaged.checks.push("retry-button-real-request");
     packaged.status = await installedPage.$eval("#bsp-status", el => el.textContent);
     await installedPage.screenshot({ path: ".scratch/live/bing-installed.png" });

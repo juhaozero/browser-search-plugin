@@ -18,7 +18,9 @@
       "48": "icons/icon-48.png"
     }
   },
-  "permissions": ["storage"],
+  "permissions": [
+    "storage"
+  ],
   "content_scripts": [
     {
       "matches": [
@@ -27,7 +29,6 @@
         "https://bing.com/search*",
         "https://www.google.com/search*",
         "https://google.com/search*",
-        "https://*.google.com/search*",
         "https://www.google.ae/search*",
         "https://www.google.at/search*",
         "https://www.google.be/search*",
@@ -68,8 +69,12 @@
         "https://www.google.ru/search*",
         "https://www.google.se/search*"
       ],
-      "js": ["content.js"],
-      "css": ["content.css"],
+      "js": [
+        "content.js"
+      ],
+      "css": [
+        "content.css"
+      ],
       "run_at": "document_start"
     }
   ]

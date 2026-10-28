@@ -1,4 +1,5 @@
 import { nextPageUrl } from "./search-session.mjs";
+import { DEFAULT_LOCALE, normalizeLocale, t } from "./i18n.mjs";
 
 const NEAR_BOTTOM_PX = 800;
 const PAGE_BATCH_SIZE = 10;
@@ -13,6 +14,7 @@ const PAGE_BATCH_SIZE = 10;
  *   },
  *   url: string,
  *   enabled?: boolean,
+ *   locale?: string,
  *   fetchDocument: (url: string, signal?: AbortSignal) => Promise<Document>,
  *   nearBottomPx?: number,
  *   mutate?: <T>(fn: () => T) => T,
@@ -35,20 +37,19 @@ export function createAutoPager(options) {
   let tip = null;
   let pageLimit = PAGE_BATCH_SIZE;
   let status = "loaded";
-  const zh = /^zh/i.test(document.documentElement.lang || document.defaultView?.navigator?.language || "en");
-  const labels = zh ? {
-    loaded: (n) => `已追加 ${n} 页`, loading: "正在加载下一页…", failed: "加载失败，请重试",
-    limit: "已暂停自动加载", end: "没有更多新结果", retry: "重试", more: "继续加载", top: "返回顶部",
-  } : {
-    loaded: (n) => `${n} more page${n === 1 ? "" : "s"} loaded`, loading: "Loading next page…", failed: "Could not load results. Try again.",
-    limit: "Auto loading paused", end: "No more new results", retry: "Retry", more: "Load more", top: "Back to top",
-  };
+  let locale = normalizeLocale(options.locale ?? DEFAULT_LOCALE);
+  const statusKeys = { loading: "pageLoading", failed: "pageFailed", limit: "pageLimit", end: "pageEnd" };
   /** @type {AbortController | null} */
   let inflight = null;
 
   return {
     get enabled() {
       return enabled;
+    },
+    setLocale(value) {
+      if (disposed) return;
+      locale = normalizeLocale(value);
+      if (tip && !tip.hidden) renderStatus();
     },
     setEnabled(value) {
       enabled = Boolean(value);
@@ -155,12 +156,12 @@ export function createAutoPager(options) {
       node.textContent = "";
       const message = document.createElement("span");
       message.className = "bsp-status-message";
-      const count = labels.loaded(session.appendedPages);
-      message.textContent = status === "loaded" ? count : `${labels[status]} · ${count}`;
+      const count = t(locale, "pagesLoaded").replace("{count}", String(session.appendedPages));
+      message.textContent = status === "loaded" ? count : `${t(locale, statusKeys[status])} · ${count}`;
       node.appendChild(message);
-      if (status === "failed") addButton(node, labels.retry, () => { void retry(); });
-      if (status === "limit") addButton(node, labels.more, () => { void continueLoading(); });
-      if (session.appendedPages > 0) addButton(node, labels.top, () => {
+      if (status === "failed") addButton(node, t(locale, "pageRetry"), () => { void retry(); });
+      if (status === "limit") addButton(node, t(locale, "pageMore"), () => { void continueLoading(); });
+      if (session.appendedPages > 0) addButton(node, t(locale, "pageTop"), () => {
         document.defaultView?.scrollTo?.({ top: 0, behavior: "smooth" });
       });
       node.hidden = false;

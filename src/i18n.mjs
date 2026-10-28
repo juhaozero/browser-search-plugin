@@ -22,6 +22,14 @@ export const MESSAGES = {
     langEn: "EN",
     langZh: "中文",
     langLabel: "Language",
+    pagesLoaded: "Pages added: {count}",
+    pageLoading: "Loading next page…",
+    pageFailed: "Could not load results. Try again.",
+    pageLimit: "Auto loading paused",
+    pageEnd: "No more new results",
+    pageRetry: "Retry",
+    pageMore: "Load more",
+    pageTop: "Back to top",
   },
   zh: {
     tagline: "把搜索结果排成更易读的版式",
@@ -41,6 +49,14 @@ export const MESSAGES = {
     langEn: "EN",
     langZh: "中文",
     langLabel: "语言",
+    pagesLoaded: "已追加 {count} 页",
+    pageLoading: "正在加载下一页…",
+    pageFailed: "加载失败，请重试",
+    pageLimit: "已暂停自动加载",
+    pageEnd: "没有更多新结果",
+    pageRetry: "重试",
+    pageMore: "继续加载",
+    pageTop: "返回顶部",
   },
 };
 
@@ -94,6 +110,7 @@ export function applyLocale(document, locale) {
 export function createLocaleStore(storage) {
   if (!storage) {
     let value = DEFAULT_LOCALE;
+    const listeners = new Set();
     return {
       async load() {
         return value;
@@ -103,12 +120,28 @@ export function createLocaleStore(storage) {
        */
       async save(next) {
         value = normalizeLocale(next);
+        for (const listener of listeners) listener(value);
         return value;
+      },
+      subscribe(listener) {
+        listeners.add(listener);
+        return () => listeners.delete(listener);
       },
     };
   }
 
   return {
+    subscribe(listener) {
+      const onChanged = (changes, area) => {
+        if ((area === "sync" || area === "local") && changes.uiLocale) {
+          listener(normalizeLocale(changes.uiLocale.newValue));
+        }
+      };
+      storage.onChanged.addListener(onChanged);
+      return () => {
+        try { storage.onChanged.removeListener(onChanged); } catch { /* Context may be invalidated. */ }
+      };
+    },
     async load() {
       try {
         const sync = await storage.sync.get("uiLocale");
