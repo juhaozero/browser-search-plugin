@@ -3,6 +3,7 @@ node_modules/
 dist/
 extension/content.js
 extension/popup.js
+extension/background.js
 
 # Local browser reports, screenshots, and release archives
 /.scratch/

@@ -8,6 +8,7 @@ import { DOM_MUTE_FLAG, RELAYOUT_FLAG } from "./layout-constants.mjs";
 import { clearCenteredLayout, realign } from "./shell-layout.mjs";
 import { attachScroll, watchResults } from "./dom-watch.mjs";
 import { createPageAppearance } from "./page-appearance.mjs";
+import { createResultTools } from "./result-tools.mjs";
 
 /**
  * @param {Document} document
@@ -37,6 +38,8 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
   const appearance = createPageAppearance(document);
   appearance.apply(prefs, locale);
   const session = createSearchSession(document, url, prefs);
+  const resultTools = createResultTools(document, url, session);
+  resultTools.refresh(prefs, locale);
   realign(document, layout);
   markActive(document, session.engine);
   // 布局已落到自定义列模式（或 original），允许显示结果区
@@ -58,6 +61,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
     prefs,
     fetchDocument: deps.fetchDocument ?? fetchHtmlDocument,
     mutate: (fn) => watcher.runMuted(fn),
+    onIngest: () => resultTools.refresh(prefs, locale),
   });
   const stopScroll = deps.attachScroll !== false ? attachScroll(document, pager) : () => {};
 
@@ -69,6 +73,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
       watcher.runMuted(() => {
         appearance.apply(prefs, locale);
         session.refresh();
+        resultTools.refresh(prefs, locale);
         realign(document, layout);
         markActive(document, session.engine);
       });
@@ -85,6 +90,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
       prefs = normalized;
       appearance.apply(prefs, locale);
       session.apply(normalized);
+      resultTools.refresh(prefs, locale);
       pager.setEnabled(normalized.autoPage);
       pager.setPrefs(normalized);
       realign(document, layout);
@@ -99,7 +105,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
   if (store?.subscribe) unsubscribe = store.subscribe(applyPrefs);
   const unsubscribeLocale = localeStore.subscribe?.((next) => {
     locale = next;
-    watcher.runMuted(() => { appearance.apply(prefs, locale); pager.setLocale(locale); });
+    watcher.runMuted(() => { appearance.apply(prefs, locale); resultTools.refresh(prefs, locale); pager.setLocale(locale); });
   }) ?? (() => {});
   const onResize = () => {
     if (disposed) return;
@@ -133,6 +139,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
     silent(() => unsubscribeLocale());
     silent(() => {
       watcher.runMuted(() => {
+        resultTools.dispose();
         session.dispose?.();
       });
     });

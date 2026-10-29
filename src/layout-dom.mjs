@@ -160,7 +160,7 @@ function isOwnDomElement(el) {
   if (!el) return false;
   if (el.id?.startsWith("bsp-")) return true;
   if (typeof el.closest === "function") {
-    if (el.closest("#bsp-results, #bsp-status, .bsp-site-search-wrap")) return true;
+    if (el.closest("#bsp-results, #bsp-status, .bsp-site-search-wrap, .bsp-site-badge, .bsp-open-error")) return true;
   }
   return false;
 }

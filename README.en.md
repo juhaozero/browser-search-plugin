@@ -16,8 +16,14 @@ A Chrome extension that makes **Google and Bing desktop web search results** eas
 - **Visibility controls**: Google knowledge sidebar, Bing sidebar, and Google AI Overview
 - **Ads**: Keep, collapse, or dim explicitly identified top/bottom ad areas locally; collapsed ads can be expanded and original nodes are restored when disabled
 - **Pagination settings**: 1–50 pages per batch, 0–3000px bottom threshold, and optional automatic continuation while near the bottom
+- **Result opening**: Engine default, current tab, new tab, or background tab for organic result titles. New/background tabs preserve the results page; modifier and middle clicks keep browser behavior
+- **Pinned related searches**: Copy recognized related queries into a fixed bottom bar with horizontal scrolling on narrow screens; keep the original links
+- **Site identity**: Consistent domain badges reuse existing site icons, with a local initial fallback and no additional favicon service
+- **Visited links**: Optional muted link colors using CSS `:visited`, plus a page-session “opened” mark after successful new/background tab creation. Destination URLs stay in page memory only and are cleared on reload or session teardown; no history permission, history access, or persistent click records. Opening a tab does not confirm the destination loaded successfully
 
 Defaults: single-center layout + auto-page on.
+
+Result opening defaults to the engine's behavior; pinned queries, site badges and visited colors are opt-in in “Results & navigation”. Opening preferences affect organic titles only. A background service worker opens tabs without additional `tabs` permission. The related bar appears only when supported related-search containers contain valid queries.
 
 New defaults preserve the existing card layout: comfortable density, automatic width, Google sidebar and AI visible, Bing sidebar hidden, ads unchanged, 10 pages per batch, an 800px threshold, and a pause after each batch. Existing preferences receive these defaults automatically. Sidebar, AI and ad visibility are independent of column mode, including Original. Visibility settings do not block engine requests. Ad handling uses explicit engine markers, never text matching; unrecognized structures are left unchanged.
 
@@ -51,7 +57,7 @@ After code changes, run `npm run build` again and click **Reload** on the extens
 
 | Command         | Description                                                     |
 | --------------- | --------------------------------------------------------------- |
-| `npm run build` | Bundle `content.js` / `popup.js` with esbuild and write `dist/` |
+| `npm run build` | Bundle `content.js` / `popup.js` / `background.js` with esbuild and write `dist/` |
 | `npm test`      | Run Node’s built-in test runner (linkedom)                      |
 | `npm run lint` | Lint source, scripts and tests |
 | `npm run sync` | Synchronize versions, host permissions and CSS dimensions |

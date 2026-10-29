@@ -596,3 +596,72 @@ a.bsp-site-search {
 a.bsp-site-search:hover {
   text-decoration: underline;
 }
+/* Result tools use existing site icons, with a local initial when none exists. */
+.bsp-site-badge {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  min-width: 0;
+  margin: 0 0 10px !important;
+  color: #303844;
+  font: 600 13px/24px system-ui, sans-serif;
+}
+.bsp-site-icon {
+  position: relative;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  text-align: center;
+  background: #edf1f5;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bsp-site-icon img { position: absolute; inset: 2px; width: 20px; height: 20px; object-fit: contain; background: #edf1f5; }
+.bsp-site-domain { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bsp-open-error { display: block; color: #a32617; font: 13px/1.5 system-ui, sans-serif; }
+#bsp-related {
+  position: fixed !important;
+  z-index: 2147483000;
+  inset: auto 12px max(12px, env(safe-area-inset-bottom));
+  display: flex !important;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  max-width: calc(100vw - 24px);
+  height: auto !important;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid #d9dfe7;
+  border-radius: 14px;
+  background: #fff;
+  color: #303844;
+  box-shadow: 0 3px 16px #0002;
+  overflow-x: auto;
+  font: 13px/22px system-ui, sans-serif;
+}
+#bsp-related > * { flex: 0 0 auto; white-space: nowrap; }
+#bsp-related a { padding: 3px 10px; border-radius: 16px; background: #eef3fb; color: #234b83; text-decoration: none; }
+#bsp-related a:hover { text-decoration: underline; }
+#bsp-related a:focus-visible { outline: 2px solid #2454a4; outline-offset: 2px; }
+#bsp-related-space { height: calc(90px + env(safe-area-inset-bottom)); clear: both; }
+/* :visited permits color changes only; never inspect history or fade a parent card. */
+html[data-bsp-dim-visited="true"] [data-bsp-result] a:visited,
+html[data-bsp-dim-visited="true"] [data-bsp-result] a:visited h3,
+html[data-bsp-dim-visited="true"] [data-bsp-result] a:visited h2,
+html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"],
+html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"] h3,
+html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"] h2 { color: #737387 !important; }
+@media (prefers-color-scheme: dark) {
+  .bsp-site-badge { color: #d9dfe7; }
+  .bsp-site-icon, .bsp-site-icon img { background: #303844; }
+  .bsp-open-error { color: #ffb4ab; }
+  #bsp-related { background: #20242b; color: #d9dfe7; border-color: #49515d; }
+  #bsp-related a { background: #303b4e; color: #bfd3f6; }
+  html[data-bsp-dim-visited="true"] [data-bsp-result] a:visited,
+  html[data-bsp-dim-visited="true"] [data-bsp-result] a:visited h3,
+  html[data-bsp-dim-visited="true"] [data-bsp-result] a:visited h2,
+  html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"],
+  html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"] h3,
+  html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"] h2 { color: #aaa7bf !important; }
+}

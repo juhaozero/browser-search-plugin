@@ -5,7 +5,7 @@ import { findLayoutShell } from "./layout-dom.mjs";
 const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "b_results", "b_content"];
 
 /** 顶栏/导航晚到时也要触发 realign（结果区 observer 看不到） */
-const NAV_WATCH_IDS = ["searchform", "sfcnt", "sf", "appbar", "slim_appbar", "hdtb", "b_header"];
+const NAV_WATCH_IDS = ["searchform", "sfcnt", "sf", "appbar", "slim_appbar", "hdtb", "b_header", "botstuff", "bres"];
 
 /**
  * @param {Document} document

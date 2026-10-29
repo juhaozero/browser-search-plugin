@@ -10,6 +10,10 @@ export const DEFAULT_PREFS = {
   pagesPerBatch: 10,
   nearBottomPx: 800,
   autoContinue: false,
+  resultOpenMode: "original",
+  pinRelated: false,
+  emphasizeSite: false,
+  dimVisited: false,
 };
 
 const COLUMN_MODES = new Set(["original", "single", "single-center", "double"]);
@@ -37,6 +41,10 @@ export function normalizePrefs(raw) {
     pagesPerBatch: numberPref(source.pagesPerBatch, DEFAULT_PREFS.pagesPerBatch, 1, 50),
     nearBottomPx: numberPref(source.nearBottomPx, DEFAULT_PREFS.nearBottomPx, 0, 3000),
     autoContinue: typeof source.autoContinue === "boolean" ? source.autoContinue : DEFAULT_PREFS.autoContinue,
+    resultOpenMode: ["original", "current", "new-tab", "background"].includes(source.resultOpenMode) ? source.resultOpenMode : DEFAULT_PREFS.resultOpenMode,
+    pinRelated: typeof source.pinRelated === "boolean" ? source.pinRelated : DEFAULT_PREFS.pinRelated,
+    emphasizeSite: typeof source.emphasizeSite === "boolean" ? source.emphasizeSite : DEFAULT_PREFS.emphasizeSite,
+    dimVisited: typeof source.dimVisited === "boolean" ? source.dimVisited : DEFAULT_PREFS.dimVisited,
   };
 }
 

@@ -28,6 +28,7 @@ The Extension stores settings you choose in the popup, for example:
 - Card density and maximum column width
 - Sidebar and AI Overview visibility, and local ad presentation (unchanged / collapsed / dimmed)
 - Pages per batch, bottom threshold, automatic continuation, and interface language
+- Result opening mode, pinned related searches, site identity badges, and visited-link color preference
 
 These preferences are saved with `chrome.storage` (`sync` when available, otherwise `local`). If Chrome Sync is enabled for extensions, Chrome may sync these preferences across your signed-in devices according to Google’s own policies. The Extension developer does not receive a copy of these preferences on a developer-operated server.
 
@@ -37,6 +38,9 @@ On matching Google and Bing **desktop web search result pages**, the Extension�
 
 - Read the structure of organic search result items on the page
 - Rearrange those items in the page DOM for the selected layout
+- Copy recognized related-search links into an optional fixed bar and show domains with existing site icons (or a locally generated initial); no external favicon service is used
+- Open the organic result title you click in the current, new, or background tab according to your preference. The requested destination URL passes to the extension service worker to create that tab
+- Optionally change visited-link colors with CSS `:visited`. The browser manages visited status; the Extension does not read browsing history or inspect visited state. With this preference enabled, successful new/background tab creation also keeps the destination URL in the current page session’s memory to mark matching titles as opened. These temporary records are not written to Chrome storage or synced, and are cleared on reload or session teardown. Creating a tab does not confirm its destination loaded successfully
 - Show or hide sidebar / AI containers, and locally fold or dim explicitly marked advertising areas without deleting organic results
 - Optionally request the **next search results page in your browser** (same-origin request with your existing session cookies) to append more organic results on the current page
 
@@ -63,6 +67,8 @@ The Extension requests:
 - **Access to Google/Bing desktop search result pages** (via content scripts) — only to rearrange results and optionally load the next results page in-browser
 
 It does not request broad access such as all websites.
+
+Opening a new/background tab does not require the `tabs` permission. The Extension requests neither `tabs` nor `history` permission.
 
 ---
 
@@ -132,6 +138,8 @@ Questions about this Privacy Policy or the Extension:
 - **不**向开发者自有服务器上传你的搜索词、浏览历史或页面内容。
 - 偏好设置保存在 `chrome.storage`；若开启 Chrome 同步，可能随你的 Chrome 账号同步到其他设备。
 - 仅在匹配的搜索结果页本地读取/改写结果条目，并可能在浏览器内请求下一页结果以拼接显示。
+- 可选固定相关搜索、强化域名与已有图标；不接入第三方图标服务。按偏好打开结果时，目标地址传给扩展后台用于创建标签。
+- 已访问弱化使用 CSS，并在新标签／后台标签创建成功后补充当前页「已打开」标记：目标地址仅保留在当前页会话内存中，刷新或会话释放后清除，不写入存储、不随账号同步。创建标签不代表目标页面加载成功；不读取历史或检测浏览器已访问状态，不申请 `history` 或 `tabs` 权限。
 - **不**出售用户数据，也**不**将数据用于广告或与核心功能无关的用途。
 
 如有疑问，请通过上述 GitHub Issues 联系。

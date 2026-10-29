@@ -75,6 +75,7 @@ test("默认偏好是单列居中、自动翻页开", () => {
     cardDensity: "comfortable", maxColumnWidth: 0,
     googleSidebar: true, bingSidebar: false, showAI: true, adsMode: "original",
     pagesPerBatch: 10, nearBottomPx: 800, autoContinue: false,
+    resultOpenMode: "original", pinRelated: false, emphasizeSite: false, dimVisited: false,
   });
   assert.equal("highlight" in normalizePrefs({ highlight: true }), false);
 });

@@ -177,6 +177,23 @@
             <p class="bsp-field-hint" data-i18n="autoContinueHint">Off: pause at the batch limit. On: keep loading while near the bottom.</p>
           </details>
         </section>
+        <section class="bsp-section" aria-labelledby="bsp-browsing-title">
+          <div class="bsp-section-head"><h2 id="bsp-browsing-title" data-i18n="browsing">Results &amp; navigation</h2></div>
+          <label class="bsp-field">
+            <span data-i18n="resultOpenMode">Open result titles</span>
+            <select name="resultOpenMode" aria-describedby="bsp-open-hint">
+              <option value="original" data-i18n="openOriginal">Engine default</option>
+              <option value="current" data-i18n="openCurrent">Current tab</option>
+              <option value="new-tab" data-i18n="openNew">New tab</option>
+              <option value="background" data-i18n="openBackground">Background tab</option>
+            </select>
+          </label>
+          <p class="bsp-field-hint" id="bsp-open-hint" data-i18n="openHint">New / background tabs keep your results page. Modifier clicks keep browser behavior.</p>
+          <label class="bsp-check"><input type="checkbox" name="pinRelated"><span data-i18n="pinRelated">Pin related searches at the bottom</span></label>
+          <label class="bsp-check"><input type="checkbox" name="emphasizeSite"><span data-i18n="emphasizeSite">Emphasize site icon &amp; domain</span></label>
+          <label class="bsp-check"><input type="checkbox" name="dimVisited" aria-describedby="bsp-visited-hint"><span data-i18n="dimVisited">Mute visited link colors</span></label>
+          <p class="bsp-field-hint" id="bsp-visited-hint" data-i18n="visitedHint">No history access. New / background tabs are also marked as opened on this page until reload.</p>
+        </section>
       </form>
     </div>
     <script src="popup.js"></script>

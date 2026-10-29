@@ -70,6 +70,7 @@ export function createSearchSession(document, url, prefs) {
   layout();
 
   return {
+    get items() { return listOrganic(document); },
     get appendedPages() {
       return appendedPages;
     },
@@ -282,8 +283,7 @@ const googleEngine = {
     });
   },
   itemHref(item) {
-    const heading = item.querySelector("h3");
-    const link = heading?.querySelector("a") ?? heading?.closest("a") ?? item.querySelector("a[href]");
+    const link = titleLink(item) ?? item.querySelector("a[href]");
     return link?.getAttribute("href") ?? "";
   },
 };
@@ -297,15 +297,17 @@ const bingEngine = {
     return [...root.querySelectorAll("#bsp-results > li.b_algo, #b_results > li.b_algo")].filter(isBingOrganic);
   },
   itemHref(item) {
-    return bingTargetUrl(item.querySelector("h2 a[href]")?.getAttribute("href") ?? "");
+    return bingTargetUrl(titleLink(item)?.getAttribute("href") ?? "");
   },
 };
 
-/**
- * 必应结果链接是 /ck/a 跳转，追踪参数每页都变；u=a1<base64url> 才是真实地址，用它去重。
- * @param {string} href
- */
-function bingTargetUrl(href) {
+export function titleLink(item) {
+  const heading = item.querySelector(item.matches("li.b_algo") ? "h2" : "h3");
+  return heading?.querySelector("a[href]") ?? heading?.closest("a[href]") ?? null;
+}
+
+/** 必应追踪参数每页都变；u=a1<base64url> 才是真实地址，用它去重。 */
+export function bingTargetUrl(href) {
   if (!href) return "";
   try {
     const parsed = new URL(href, "https://www.bing.com");

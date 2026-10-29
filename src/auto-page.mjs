@@ -19,6 +19,7 @@ const NEAR_BOTTOM_PX = DEFAULT_PREFS.nearBottomPx;
  *   fetchDocument: (url: string, signal?: AbortSignal) => Promise<Document>,
  *   nearBottomPx?: number,
  *   mutate?: <T>(fn: () => T) => T,
+ *   onIngest?: () => void,
  * }} options
  */
 export function createAutoPager(options) {
@@ -135,7 +136,11 @@ export function createAutoPager(options) {
         clearTip();
         return { fetched: false };
       }
-      const result = mutate(() => session.ingest(nextDocument));
+      const result = mutate(() => {
+        const result = session.ingest(nextDocument);
+        if (result.added) options.onIngest?.();
+        return result;
+      });
       if (disposed || !enabled || !session.autoPage) {
         clearTip();
         return { fetched: false };
