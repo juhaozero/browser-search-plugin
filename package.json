@@ -1,6 +1,6 @@
 {
   "name": "browser-search-plugin",
-  "version": "0.0.6",
+  "version": "0.0.7",
   "description": "Readable single and dual column layouts with automatic pagination for Google and Bing search.",
   "scripts": {
     "test": "node --max-old-space-size=4096 --test --test-isolation=none --test-concurrency=1 \"test/**/*.test.mjs\"",
