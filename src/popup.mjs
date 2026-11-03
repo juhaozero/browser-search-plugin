@@ -1,5 +1,6 @@
 import { applyLocale, createLocaleStore, DEFAULT_LOCALE, normalizeLocale } from "./i18n.mjs";
-import { DEFAULT_PREFS, createChromePrefsStore, normalizePrefs } from "./preferences.mjs";
+import { DEFAULT_PREFS, PREF_PRESETS, applyPreset, createChromePrefsStore, normalizePrefs } from "./preferences.mjs";
+import { createPageDomainsClient, mountPopupDomains } from "./popup-domains.mjs";
 
 /**
  * @param {Document} document
@@ -23,6 +24,8 @@ export async function mountPopup(document, deps = {}) {
   const [prefs, locale] = await Promise.all([store.load(), localeStore.load()]);
   paint(document, prefs);
   applyLocale(document, normalizeLocale(locale));
+  const domains = await mountPopupDomains(document, deps.pageDomainsClient
+    ?? (typeof chrome !== "undefined" && chrome.tabs ? createPageDomainsClient(chrome.tabs) : async () => null));
 
   const form = document.getElementById("bsp-prefs");
   if (!form) throw new Error("弹窗缺少表单");
@@ -34,15 +37,24 @@ export async function mountPopup(document, deps = {}) {
     return saved;
   }
 
-  form.addEventListener("change", () => {
+  form.addEventListener("change", event => {
+    if (event.target.closest("#bsp-domain-controls")) return;
     void commit();
   });
   form.addEventListener("submit", event => event.preventDefault());
+
+  for (const button of document.querySelectorAll("[data-preset]")) {
+    button.addEventListener("click", () => {
+      paint(document, applyPreset(readForm(document), button.dataset.preset));
+      void commit();
+    });
+  }
 
   for (const btn of document.querySelectorAll("[data-locale]")) {
     btn.addEventListener("click", () => {
       const next = normalizeLocale(btn.getAttribute("data-locale"));
       applyLocale(document, next);
+      domains.render();
       void localeStore.save(next);
     });
   }
@@ -61,6 +73,7 @@ export async function mountPopup(document, deps = {}) {
     async setLocale(next) {
       const saved = await localeStore.save(next);
       applyLocale(document, saved);
+      domains.render();
       return saved;
     },
   };
@@ -72,6 +85,10 @@ export async function mountPopup(document, deps = {}) {
  */
 export function paint(document, prefs) {
   const normalized = normalizePrefs(prefs);
+  for (const button of document.querySelectorAll("[data-preset]")) {
+    const preset = PREF_PRESETS[button.dataset.preset];
+    button.setAttribute("aria-pressed", String(Object.entries(preset ?? {}).every(([key, value]) => normalized[key] === value)));
+  }
   for (const input of document.querySelectorAll("input[name='columnMode']")) {
     input.checked = input.value === normalized.columnMode;
   }

@@ -34,6 +34,15 @@
       </header>
 
       <form id="bsp-prefs" class="bsp-form">
+        <section class="bsp-section" aria-labelledby="bsp-presets-title">
+          <div class="bsp-section-head"><h2 id="bsp-presets-title" data-i18n="presets">Quick presets</h2></div>
+          <div class="bsp-presets" role="group" aria-labelledby="bsp-presets-title">
+            <button type="button" data-preset="simple" aria-pressed="false" data-i18n="presetSimple">Simple</button>
+            <button type="button" data-preset="reading" aria-pressed="false" data-i18n="presetReading">Focused reading</button>
+            <button type="button" data-preset="minimal" aria-pressed="false" data-i18n="presetMinimal">Minimal distractions</button>
+          </div>
+          <p class="bsp-field-hint" data-i18n="presetHint">Adjust paging and reading appearance. Layout and result opening stay independent.</p>
+        </section>
         <section class="bsp-section" aria-labelledby="bsp-layout-title">
           <div class="bsp-section-head">
             <h2 id="bsp-layout-title" data-i18n="layout">Layout</h2>
@@ -116,6 +125,44 @@
           </div>
         </section>
 
+        <section class="bsp-section" aria-labelledby="bsp-clean-title">
+          <div class="bsp-section-head"><h2 id="bsp-clean-title" data-i18n="cleanResults">Clean up results</h2></div>
+          <label class="bsp-check"><input type="checkbox" name="collapsePaa"><span data-i18n="collapsePaa">Collapse People Also Ask</span></label>
+          <label class="bsp-check"><input type="checkbox" name="collapseVideos"><span data-i18n="collapseVideos">Collapse video carousels</span></label>
+          <label class="bsp-check"><input type="checkbox" name="collapseSnippets"><span data-i18n="collapseSnippets">Collapse featured snippets</span></label>
+          <p class="bsp-field-hint" data-i18n="blocksHint">Each block can still be expanded on the page.</p>
+          <label class="bsp-switch">
+            <input type="checkbox" name="autoPage">
+            <span class="bsp-switch-copy">
+              <span class="bsp-switch-title" data-i18n="autoPage">Auto page</span>
+              <span class="bsp-switch-desc" data-i18n="autoPageDesc">Load the next page at the bottom</span>
+            </span>
+            <span class="bsp-switch-track" aria-hidden="true">
+              <span class="bsp-switch-thumb"></span>
+            </span>
+          </label>
+        </section>
+        <details class="bsp-advanced bsp-all-advanced">
+          <summary data-i18n="advanced">Advanced</summary>
+          <section class="bsp-section" id="bsp-domain-controls" aria-labelledby="bsp-domains-title">
+            <div class="bsp-section-head"><h2 id="bsp-domains-title" data-i18n="domainTitle">Hide domains on this page</h2></div>
+            <fieldset disabled>
+              <label class="bsp-domain-label"><span data-i18n="domainLabel">Domains (including subdomains)</span>
+                <input type="text" name="pageDomains" autocomplete="off" spellcheck="false" aria-describedby="bsp-domain-help bsp-domain-error">
+              </label>
+              <p class="bsp-field-hint" id="bsp-domain-help" data-i18n="domainHelp">Separate domains with spaces or commas. Page only; clears on reload.</p>
+              <div class="bsp-domain-actions">
+                <button type="button" data-domain-group="domainVisual" data-i18n="domainVisual">Image sites</button>
+                <button type="button" data-domain-group="domainCommunity" data-i18n="domainCommunity">Q&amp;A / communities</button>
+                <button type="button" data-domain-group="domainSocial" data-i18n="domainSocial">Social sites</button>
+              </div>
+              <div class="bsp-domain-actions">
+                <button type="button" data-domain-apply data-i18n="domainApply">Apply</button>
+                <button type="button" data-domain-clear data-i18n="domainClear">Restore all</button>
+              </div>
+            </fieldset>
+            <p id="bsp-domain-error" class="bsp-field-hint" role="status" aria-live="polite"></p>
+          </section>
         <section class="bsp-section" aria-labelledby="bsp-appearance-title">
           <div class="bsp-section-head"><h2 id="bsp-appearance-title" data-i18n="appearance">Appearance</h2></div>
           <label class="bsp-field">
@@ -153,16 +200,7 @@
             <h2 id="bsp-reading-title" data-i18n="reading">Reading</h2>
           </div>
 
-          <label class="bsp-switch">
-            <input type="checkbox" name="autoPage">
-            <span class="bsp-switch-copy">
-              <span class="bsp-switch-title" data-i18n="autoPage">Auto page</span>
-              <span class="bsp-switch-desc" data-i18n="autoPageDesc">Load the next page at the bottom</span>
-            </span>
-            <span class="bsp-switch-track" aria-hidden="true">
-              <span class="bsp-switch-thumb"></span>
-            </span>
-          </label>
+
           <details class="bsp-advanced">
             <summary data-i18n="pagingOptions">Paging options</summary>
             <label class="bsp-field">
@@ -194,6 +232,7 @@
           <label class="bsp-check"><input type="checkbox" name="dimVisited" aria-describedby="bsp-visited-hint"><span data-i18n="dimVisited">Mute visited link colors</span></label>
           <p class="bsp-field-hint" id="bsp-visited-hint" data-i18n="visitedHint">No history access. New / background tabs are also marked as opened on this page until reload.</p>
         </section>
+        </details>
       </form>
     </div>
     <script src="popup.js"></script>

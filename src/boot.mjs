@@ -167,6 +167,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
   return {
     session,
     pager,
+    pageDomains: resultTools.domainFilter,
     applyPrefs,
     dispose: disposeBoot,
   };

@@ -1,4 +1,5 @@
 import { GOOGLE_HOSTS, BING_HOSTS } from "./search-hosts.mjs";
+import { isSpecialResult, resultBlocks } from "./result-blocks.mjs";
 
 const PAGE_SIZE = 10;
 
@@ -274,10 +275,11 @@ const googleEngine = {
     return document.getElementById("rso") ?? document.getElementById("search");
   },
   organicItems(root) {
+    const blocks = resultBlocks(root);
     return [...root.querySelectorAll(
       "#bsp-results > .g, #bsp-results > .tF2Cxc, #rso .g, #rso .tF2Cxc",
     )].filter((element) => {
-      if (!isGoogleOrganic(element)) return false;
+      if (!isGoogleOrganic(element) || isSpecialResult(element, blocks)) return false;
       if (element.parentElement?.closest(".g, .tF2Cxc")) return false;
       return true;
     });
@@ -294,7 +296,9 @@ const bingEngine = {
     return document.getElementById("b_results");
   },
   organicItems(root) {
-    return [...root.querySelectorAll("#bsp-results > li.b_algo, #b_results > li.b_algo")].filter(isBingOrganic);
+    const blocks = resultBlocks(root);
+    return [...root.querySelectorAll("#bsp-results > li.b_algo, #b_results > li.b_algo")]
+      .filter(element => isBingOrganic(element) && !isSpecialResult(element, blocks));
   },
   itemHref(item) {
     return bingTargetUrl(titleLink(item)?.getAttribute("href") ?? "");

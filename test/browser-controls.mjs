@@ -85,6 +85,24 @@ test("Chromium：四组设置、可恢复广告、侧栏预算、自动继续与
       await page.evaluate(() => controlsBoot.applyPrefs({ autoPage: true, autoContinue: true, pagesPerBatch: 1, nearBottomPx: 3000 }));
       await page.waitForFunction(() => controlsBoot.session.appendedPages === 3 && controlsBoot.pager.stopped);
       assert.equal(await page.evaluate(() => controlsRequests), 4);
+      await page.evaluate(() => {
+        const host = document.getElementById("b_results") ?? document.getElementById("rso");
+        const block = document.createElement(host.tagName === "OL" ? "li" : "div");
+        block.id = "controls-paa";
+        block.setAttribute("data-paa", "");
+        block.innerHTML = '<button id="controls-question">Question content</button>';
+        host.appendChild(block);
+        controlsBoot.applyPrefs({ autoPage: false, collapsePaa: true });
+      });
+      assert.equal(await page.$eval("#controls-question", el => el.checkVisibility()), false);
+      await page.click("#controls-paa summary");
+      assert.equal(await page.$eval("#controls-question", el => el.checkVisibility()), true);
+      await page.evaluate(() => controlsBoot.pageDomains.set("example.com"));
+      assert.equal(await page.$eval("#bsp-results > :first-child", el => getComputedStyle(el).display), "none");
+      assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);
+      await page.evaluate(() => controlsBoot.pageDomains.set(""));
+      assert.equal(await page.$("[data-bsp-domain-hidden]"), null);
+      assert.equal(await page.$("#bsp-domain-filter"), null);
       await page.evaluate(() => controlsBoot.dispose());
       assert.equal(await page.$("[data-bsp-density], .bsp-ad-fold, [data-bsp-ad-region]"), null);
     }
@@ -95,7 +113,15 @@ test("Chromium：四组设置、可恢复广告、侧栏预算、自动继续与
     await page.addStyleTag({ content: await readFile("extension/popup.css", "utf8") });
     await page.evaluate(() => {
       window.controlsStored = {};
-      window.chrome = { storage: { sync: {
+      window.controlsDomains = [];
+      window.chrome = { tabs: {
+        query: async () => [{ id: 42 }],
+        sendMessage: async (tabId, message) => {
+          if (tabId !== 42 || message.type !== "bsp-page-domains") throw new Error("Unexpected target");
+          if (message.action === "set") controlsDomains = message.value.split(/[, ]+/).filter(Boolean);
+          return { ok: true, domains: controlsDomains, count: controlsDomains.length };
+        },
+      }, storage: { sync: {
         get: async key => ({ [key]: controlsStored[key] }),
         set: async next => { Object.assign(controlsStored, next); },
       } } };
@@ -103,6 +129,19 @@ test("Chromium：四组设置、可恢复广告、侧栏预算、自动继续与
     const popup = await esbuild.build({ entryPoints: ["src/popup.mjs"], bundle: true, write: false, format: "iife" });
     await page.addScriptTag({ content: popup.outputFiles[0].text });
     await page.waitForFunction(() => document.querySelector("[name='pagesPerBatch']").value === "10");
+    await page.click('[data-preset="minimal"]');
+    await page.waitForFunction(() => controlsStored.prefs?.collapseSnippets === true);
+    assert.equal(await page.$eval('[data-preset="minimal"]', el => el.getAttribute("aria-pressed")), "true");
+    await mkdir(".scratch", { recursive: true });
+    await page.screenshot({ path: ".scratch/cleanup-presets-popup.png", fullPage: true });
+    assert.equal(await page.$eval('[name="columnMode"]', el => el.checkVisibility()), true);
+    assert.equal(await page.$eval('[name="pageDomains"]', el => el.checkVisibility()), false);
+    await page.click(".bsp-all-advanced > summary");
+    await page.type('[name="pageDomains"]', 'zhihu.com');
+    await page.click('[data-domain-apply]');
+    await page.waitForFunction(() => controlsDomains.includes('zhihu.com'));
+    await page.click('[data-domain-clear]');
+    await page.waitForFunction(() => controlsDomains.length === 0);
     await page.select("[name='cardDensity']", "compact");
     await page.evaluate(() => {
       const input = document.querySelector("[name='maxColumnWidth']");

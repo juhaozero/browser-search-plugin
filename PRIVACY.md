@@ -1,6 +1,6 @@
 # SearchLayout Privacy Policy
 
-Last updated: 2026-10-28
+Last updated: 2026-10-30
 
 This Privacy Policy describes how the **SearchLayout** Chrome extension (“the Extension”) handles information when you install and use it.
 
@@ -29,6 +29,7 @@ The Extension stores settings you choose in the popup, for example:
 - Sidebar and AI Overview visibility, and local ad presentation (unchanged / collapsed / dimmed)
 - Pages per batch, bottom threshold, automatic continuation, and interface language
 - Result opening mode, pinned related searches, site identity badges, and visited-link color preference
+- Independent folding preferences for People Also Ask, video carousels and featured snippets; quick presets apply presentation preferences
 
 These preferences are saved with `chrome.storage` (`sync` when available, otherwise `local`). If Chrome Sync is enabled for extensions, Chrome may sync these preferences across your signed-in devices according to Google’s own policies. The Extension developer does not receive a copy of these preferences on a developer-operated server.
 
@@ -42,6 +43,8 @@ On matching Google and Bing **desktop web search result pages**, the Extension�
 - Open the organic result title you click in the current, new, or background tab according to your preference. The requested destination URL passes to the extension service worker to create that tab
 - Optionally change visited-link colors with CSS `:visited`. The browser manages visited status; the Extension does not read browsing history or inspect visited state. With this preference enabled, successful new/background tab creation also keeps the destination URL in the current page session’s memory to mark matching titles as opened. These temporary records are not written to Chrome storage or synced, and are cleared on reload or session teardown. Creating a tab does not confirm its destination loaded successfully
 - Show or hide sidebar / AI containers, and locally fold or dim explicitly marked advertising areas without deleting organic results
+- Fold recognized People Also Ask, video carousels and featured snippets in the local DOM, retaining the original nodes and allowing expansion
+- Hide organic results whose destination domains match rules you enter under Advanced in the popup, including subdomains and newly appended results. These rules and hidden counts are exchanged locally between the popup and the active search tab and remain in memory only, are never saved to Chrome storage or synced, and clear on reload, search navigation or session teardown. Domain filtering and block folding make no additional network requests and do not block the engine's own requests
 - Optionally request the **next search results page in your browser** (same-origin request with your existing session cookies) to append more organic results on the current page
 
 This processing happens locally in your browser to provide the Extension’s features. Search queries, result titles/snippets/URLs, and page HTML are **not** uploaded to a developer-operated server by the Extension.
@@ -137,6 +140,7 @@ Questions about this Privacy Policy or the Extension:
 
 - **不**向开发者自有服务器上传你的搜索词、浏览历史或页面内容。
 - 偏好设置保存在 `chrome.storage`；若开启 Chrome 同步，可能随你的 Chrome 账号同步到其他设备。
+- 预设和特殊模块折叠开关属于上述偏好；「大家还在问」、视频轮播和精选摘要仅本地折叠，可展开。本页域名隐藏在弹窗「高级」中管理，规则和隐藏数量仅在内存保留，通过弹窗与当前搜索页之间的本地消息读写，刷新、搜索导航或会话释放后清除，不保存、不同步、不上传。过滤与折叠不新增网络请求，也不阻止搜索引擎自身加载。
 - 仅在匹配的搜索结果页本地读取/改写结果条目，并可能在浏览器内请求下一页结果以拼接显示。
 - 可选固定相关搜索、强化域名与已有图标；不接入第三方图标服务。按偏好打开结果时，目标地址传给扩展后台用于创建标签。
 - 已访问弱化使用 CSS，并在新标签／后台标签创建成功后补充当前页「已打开」标记：目标地址仅保留在当前页会话内存中，刷新或会话释放后清除，不写入存储、不随账号同步。创建标签不代表目标页面加载成功；不读取历史或检测浏览器已访问状态，不申请 `history` 或 `tabs` 权限。

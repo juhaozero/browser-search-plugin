@@ -8,6 +8,9 @@ A Chrome extension that makes **Google and Bing desktop web search results** eas
 
 ## Features
 
+- **Quick presets**: Simple / Focused reading / Minimal distractions adjust paging and reading appearance. Layout and result opening stay independent. Simple loads batches of 10 pages at 800px; Focused reading uses 5 pages at 600px; Minimal distractions disables auto-page. Layout stays on the main popup screen; other detailed controls live under Advanced.
+- **Page-only domain hiding**: Open Advanced → Hide domains on this page in the popup to enter domains such as `pinterest.com` or `zhihu.com`, including subdomains. Image, community and social-site groups can be combined, edited or cleared. Appended results are filtered too.
+- **Special result blocks**: Separate switches for People Also Ask, video carousels and featured snippets. Recognized blocks can be expanded in place and restored without replacing their nodes.
 - **Column modes**: Original / Single / Single-center / Double (results as cards)
 - **Auto-page**: When you scroll near the bottom, the next page of organic results is appended on the same page
 - **Loading status**: See the number of appended pages, retry failed requests, continue after each 10-page pause, or return to the top
@@ -22,6 +25,8 @@ A Chrome extension that makes **Google and Bing desktop web search results** eas
 - **Visited links**: Optional muted link colors using CSS `:visited`, plus a page-session “opened” mark after successful new/background tab creation. Destination URLs stay in page memory only and are cleared on reload or session teardown; no history permission, history access, or persistent click records. Opening a tab does not confirm the destination loaded successfully
 
 Defaults: single-center layout + auto-page on.
+
+Domain hiding and block folding only change the local DOM, without additional requests or permissions. They do not prevent engine requests. Domain rules and hidden counts stay in memory and are exchanged locally between the popup and active search tab and clear on reload, search navigation or session teardown; they are never saved, synced or uploaded. Popup appearance and folding preferences still use Chrome storage and may sync. All three block switches default to off; unrecognized structures remain unchanged. Detailed navigation options are under Advanced → Results & navigation.
 
 Result opening defaults to the engine's behavior; pinned queries, site badges and visited colors are opt-in in “Results & navigation”. Opening preferences affect organic titles only. A background service worker opens tabs without additional `tabs` permission. The related bar appears only when supported related-search containers contain valid queries.
 

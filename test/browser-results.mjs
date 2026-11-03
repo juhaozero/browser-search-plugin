@@ -41,6 +41,25 @@ test("Chromium installed extension: background / foreground tabs, current tab, p
       await page.goto(`${origin}/search?q=test`);
       await page.waitForSelector(".bsp-site-badge");
       assert.equal(await page.$eval(".bsp-site-domain", el => el.textContent), `www.${engine}.com`);
+      // Keep the search tab active while the extension popup queries its page-only state.
+      await page.bringToFront();
+      await popup.reload();
+      await popup.waitForFunction(() => !document.querySelector('#bsp-domain-controls fieldset').disabled);
+      await popup.evaluate(host => {
+        document.querySelector('[name="pageDomains"]').value = host;
+        document.querySelector('[data-domain-apply]').click();
+      }, `www.${engine}.com`);
+      await page.waitForFunction(() => document.querySelectorAll('[data-bsp-domain-hidden="true"]').length === 3);
+      assert.equal(await page.$eval('#bsp-results > :first-child', el => getComputedStyle(el).display), 'none');
+      await popup.reload();
+      await popup.waitForFunction(host => document.querySelector('[name="pageDomains"]').value === host, {}, `www.${engine}.com`);
+      assert.equal(await popup.evaluate(async () => {
+        const { prefs } = await chrome.storage.sync.get('prefs');
+        return 'pageDomains' in prefs || 'domains' in prefs;
+      }), false);
+      await popup.evaluate(() => document.querySelector('[data-domain-clear]').click());
+      await page.waitForFunction(() => !document.querySelector('[data-bsp-domain-hidden]'));
+      assert.equal(await page.$('#bsp-domain-filter'), null);
       assert.equal(await page.$eval("#bsp-related", el => getComputedStyle(el).position), "fixed");
       await page.setViewport({ width: 390, height: 844 });
       assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 2), false);

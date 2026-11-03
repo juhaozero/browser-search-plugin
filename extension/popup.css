@@ -354,3 +354,25 @@ body {
 .bsp-advanced summary { cursor: pointer; font-weight: 600; }
 .bsp-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
 .bsp-check input { accent-color: var(--bsp-primary); }
+
+.bsp-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.bsp-presets button {
+  padding: 10px 6px; border: 1px solid var(--bsp-line); border-radius: 8px;
+  background: var(--bsp-surface); color: var(--bsp-ink); font: inherit; cursor: pointer;
+}
+.bsp-presets button[aria-pressed="true"] { border-color: var(--bsp-primary); color: var(--bsp-primary); background: #edf3ff; }
+.bsp-presets button:focus-visible { outline: 2px solid var(--bsp-primary); outline-offset: 2px; }
+.bsp-all-advanced { padding: 14px; border: 1px solid var(--bsp-line); border-radius: 12px; }
+.bsp-domain-label { display: grid; gap: 6px; }
+#bsp-domain-controls fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+#bsp-domain-controls input {
+  width: 100%; min-width: 0; box-sizing: border-box; padding: 8px;
+  border: 1px solid var(--bsp-line); border-radius: 6px; background: var(--bsp-surface); color: var(--bsp-ink); font: inherit;
+}
+.bsp-domain-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.bsp-domain-actions button {
+  padding: 5px 8px; border: 1px solid var(--bsp-line); border-radius: 6px;
+  background: var(--bsp-surface); color: var(--bsp-ink); font: inherit; cursor: pointer;
+}
+#bsp-domain-controls :focus-visible { outline: 2px solid var(--bsp-primary); outline-offset: 2px; }
+#bsp-domain-controls :disabled { opacity: .6; cursor: default; }

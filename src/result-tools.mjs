@@ -2,6 +2,7 @@ import { bingTargetUrl, titleLink } from "./search-session.mjs";
 import { safeWebUrl } from "./result-tabs.mjs";
 import { t } from "./i18n.mjs";
 import { BING_HOSTS } from "./search-hosts.mjs";
+import { createDomainFilter } from "./domain-filter.mjs";
 
 export { titleLink };
 
@@ -50,13 +51,25 @@ export function createResultTools(document, url, session, sendMessage = message 
   const openedLinks = new Map();
   const root = document.documentElement;
   const oldVisited = root.getAttribute("data-bsp-dim-visited");
+  const domainFilter = createDomainFilter(document, session, item => {
+    const link = titleLink(item);
+    return link && destinationUrl(link.getAttribute("href"), url, session.engine);
+  });
+  const runtime = typeof chrome !== "undefined" ? chrome.runtime : null;
+  function onDomainsMessage(message, sender, respond) {
+    if (disposed || message?.type !== "bsp-page-domains" || sender.id !== runtime?.id) return;
+    if (message.action === "get") respond(domainFilter.get());
+    else if (message.action === "set") respond(domainFilter.set(message.value));
+  }
+  runtime?.onMessage?.addListener(onDomainsMessage);
   document.addEventListener("click", onClick, true);
-  return { refresh, dispose };
+  return { refresh, dispose, domainFilter };
 
   function refresh(next = prefs, nextLocale = locale) {
     if (disposed) return;
     prefs = next;
     locale = nextLocale;
+    domainFilter.refresh();
     root.setAttribute("data-bsp-dim-visited", String(prefs.dimVisited));
     const items = new Set(session.items);
     for (const [item, badge] of badges) {
@@ -187,6 +200,8 @@ export function createResultTools(document, url, session, sendMessage = message 
   }
   function dispose() {
     disposed = true;
+    domainFilter.dispose();
+    try { runtime?.onMessage?.removeListener(onDomainsMessage); } catch { /* Context invalidated. */ }
     document.removeEventListener("click", onClick, true);
     for (const badge of badges.values()) badge.remove();
     for (const [item, value] of marked) restoreMark(item, value);

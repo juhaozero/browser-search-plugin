@@ -1,5 +1,6 @@
 import { t } from "./i18n.mjs";
 import { CARD_COLUMN_GAP } from "./layout-constants.mjs";
+import { resultBlocks } from "./result-blocks.mjs";
 
 // shortcut: only explicit engine ad containers are handled; extend when verified markup changes.
 const AD_SELECTOR = "#tads, #tadsb, #bottomads, #b_results > .b_ad, #b_results > .b_adTop, #b_results > .b_adBottom, #b_adTop, #b_adBottom";
@@ -11,6 +12,7 @@ export function createPageAppearance(document) {
   const savedWidths = ["--bsp-single-max", "--bsp-double-max"].map(name => [name, root.style.getPropertyValue(name),
     typeof root.style.getPropertyPriority === "function" ? root.style.getPropertyPriority(name) : ""]);
   const folds = new Map();
+  const blockFolds = new Map();
   const regions = new Set();
   return { apply, dispose };
 
@@ -21,16 +23,36 @@ export function createPageAppearance(document) {
     }
   }
 
-  function unfold(ad, details) {
+  function unfold(ad, details, collection = folds) {
     const summary = details.querySelector(":scope > summary");
     for (const child of [...details.childNodes]) {
       if (child !== summary) details.parentNode?.insertBefore(child, details);
     }
     details.remove();
-    folds.delete(ad);
+    collection.delete(ad);
   }
 
   function apply(prefs, locale) {
+    const blocks = resultBlocks(document);
+    for (const [block, details] of blockFolds) {
+      if (!blocks.has(block) || !prefs[blocks.get(block).pref] || !block.isConnected || details.parentNode !== block) {
+        unfold(block, details, blockFolds);
+      }
+    }
+    for (const [block, type] of blocks) {
+      if (!prefs[type.pref] || block.parentElement?.closest(".bsp-block-fold")) continue;
+      let details = blockFolds.get(block);
+      if (!details) {
+        details = document.createElement("details");
+        details.className = "bsp-block-fold";
+        details.appendChild(document.createElement("summary"));
+        blockFolds.set(block, details);
+      }
+      for (const child of [...block.childNodes]) if (child !== details) details.appendChild(child);
+      if (details.parentNode !== block) block.appendChild(details);
+      const summary = details.querySelector(":scope > summary");
+      if (summary.textContent !== t(locale, type.label)) summary.textContent = t(locale, type.label);
+    }
     root.setAttribute("data-bsp-density", prefs.cardDensity);
     root.setAttribute("data-bsp-max-column-width", String(prefs.maxColumnWidth));
     root.setAttribute("data-bsp-google-sidebar", prefs.googleSidebar ? "show" : "hide");
@@ -72,6 +94,7 @@ export function createPageAppearance(document) {
   }
 
   function dispose() {
+    for (const [block, details] of blockFolds) unfold(block, details, blockFolds);
     for (const [ad, details] of folds) unfold(ad, details);
     restoreWidths();
     for (const ad of regions) ad.removeAttribute("data-bsp-ad-region");

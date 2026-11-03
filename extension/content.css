@@ -597,6 +597,15 @@ a.bsp-site-search:hover {
   text-decoration: underline;
 }
 /* Result tools use existing site icons, with a local initial when none exists. */
+html [data-bsp-domain-hidden="true"],
+html[data-bsp-active="1"] #bsp-results[data-mode] > [data-bsp-domain-hidden="true"] { display: none !important; }
+.bsp-block-fold > summary { cursor: pointer; font-weight: 600; }
+.bsp-block-fold { padding: 10px 14px; margin: 10px 0; border: 1px solid #d9dfe7; border-radius: 8px; }
+.bsp-block-fold > summary { font: 600 13px/1.6 system-ui, sans-serif; }
+@media (prefers-color-scheme: dark) {
+  .bsp-block-fold { border-color: #49515d; }
+}
+
 .bsp-site-badge {
   display: flex !important;
   align-items: center !important;
