@@ -85,10 +85,13 @@ export async function mountPopup(document, deps = {}) {
  */
 export function paint(document, prefs) {
   const normalized = normalizePrefs(prefs);
+  const matchingPreset = Object.keys(PREF_PRESETS).find(name =>
+    Object.entries(PREF_PRESETS[name]).every(([key, value]) => normalized[key] === value),
+  );
   for (const button of document.querySelectorAll("[data-preset]")) {
-    const preset = PREF_PRESETS[button.dataset.preset];
-    button.setAttribute("aria-pressed", String(Object.entries(preset ?? {}).every(([key, value]) => normalized[key] === value)));
+    button.setAttribute("aria-pressed", String(button.dataset.preset === matchingPreset));
   }
+  document.getElementById("bsp-preset-custom")?.toggleAttribute("hidden", Boolean(matchingPreset));
   for (const input of document.querySelectorAll("input[name='columnMode']")) {
     input.checked = input.value === normalized.columnMode;
   }

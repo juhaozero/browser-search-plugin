@@ -51,13 +51,22 @@ test("预设只调整翻页与外观、保留独立布局和导航偏好，高�
   const store = createMemoryPrefsStore(initial);
   const popup = await mountPopup(document, { prefsStore: store, localeStore: createLocaleStore() });
   assert.equal(document.querySelector(".bsp-all-advanced").hasAttribute("open"), false);
-  assert.equal(document.querySelector('[name="columnMode"]').closest(".bsp-all-advanced"), null);
+  assert.deepEqual(
+    Array.from(document.querySelectorAll("#bsp-prefs > section"), section => section.getAttribute("aria-labelledby")),
+    ["bsp-presets-title", "bsp-layout-title"],
+  );
+  assert.ok(document.querySelector("#bsp-clean-title").closest(".bsp-all-advanced"));
+  assert.ok(document.querySelector('[name="autoPage"]').closest(".bsp-all-advanced"));
   assert.ok(document.querySelector('[name="pageDomains"]').closest(".bsp-all-advanced"));
+  const customPreset = document.getElementById("bsp-preset-custom");
+  assert.equal(customPreset.hasAttribute("hidden"), false);
+  assert.equal(customPreset.textContent, "Custom");
   for (const name of Object.keys(PREF_PRESETS)) {
     document.querySelector(`[data-preset="${name}"]`).click();
     await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(await store.load(), applyPreset(initial, name));
     assert.equal(document.querySelector(`[data-preset="${name}"]`).getAttribute("aria-pressed"), "true");
+    assert.equal(customPreset.hasAttribute("hidden"), true);
     for (const columnMode of ["original", "single", "single-center", "double"]) {
       const saved = applyPreset({ ...initial, columnMode }, name);
       assert.equal(saved.columnMode, columnMode);
@@ -72,9 +81,22 @@ test("预设只调整翻页与外观、保留独立布局和导航偏好，高�
   assert.equal(document.querySelector('[data-preset="minimal"]').getAttribute("aria-pressed"), "true");
   await popup.setLocale("zh");
   assert.equal(document.querySelector('[data-preset="minimal"]').textContent, "极简干扰");
-  document.querySelector('[name="collapsePaa"]').checked = false;
-  await popup.commit();
-  assert.equal(document.querySelector('[data-preset="minimal"]').getAttribute("aria-pressed"), "false");
+  const minimalPreset = document.querySelector('[data-preset="minimal"]');
+  for (const name of ["collapsePaa", "collapseVideos", "collapseSnippets"]) {
+    const input = document.querySelector(`[name="${name}"]`);
+    input.checked = false;
+    input.dispatchEvent(new document.defaultView.Event("change", { bubbles: true }));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal((await store.load())[name], false);
+    assert.equal(minimalPreset.getAttribute("aria-pressed"), "false");
+    assert.equal(customPreset.hasAttribute("hidden"), false);
+    assert.equal(customPreset.textContent, "自定义");
+
+    minimalPreset.click();
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(minimalPreset.getAttribute("aria-pressed"), "true");
+    assert.equal(customPreset.hasAttribute("hidden"), true);
+  }
 });
 
 test("域名规范化、子域边界、无效输入及国际化域名", () => {

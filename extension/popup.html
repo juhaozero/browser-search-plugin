@@ -35,7 +35,10 @@
 
       <form id="bsp-prefs" class="bsp-form">
         <section class="bsp-section" aria-labelledby="bsp-presets-title">
-          <div class="bsp-section-head"><h2 id="bsp-presets-title" data-i18n="presets">Quick presets</h2></div>
+          <div class="bsp-section-head">
+            <h2 id="bsp-presets-title" data-i18n="presets">Quick presets</h2>
+            <span role="status"><span id="bsp-preset-custom" class="bsp-preset-status" data-i18n="presetCustom" hidden>Custom</span></span>
+          </div>
           <div class="bsp-presets" role="group" aria-labelledby="bsp-presets-title">
             <button type="button" data-preset="simple" aria-pressed="false" data-i18n="presetSimple">Simple</button>
             <button type="button" data-preset="reading" aria-pressed="false" data-i18n="presetReading">Focused reading</button>
@@ -125,25 +128,25 @@
           </div>
         </section>
 
-        <section class="bsp-section" aria-labelledby="bsp-clean-title">
-          <div class="bsp-section-head"><h2 id="bsp-clean-title" data-i18n="cleanResults">Clean up results</h2></div>
-          <label class="bsp-check"><input type="checkbox" name="collapsePaa"><span data-i18n="collapsePaa">Collapse People Also Ask</span></label>
-          <label class="bsp-check"><input type="checkbox" name="collapseVideos"><span data-i18n="collapseVideos">Collapse video carousels</span></label>
-          <label class="bsp-check"><input type="checkbox" name="collapseSnippets"><span data-i18n="collapseSnippets">Collapse featured snippets</span></label>
-          <p class="bsp-field-hint" data-i18n="blocksHint">Each block can still be expanded on the page.</p>
-          <label class="bsp-switch">
-            <input type="checkbox" name="autoPage">
-            <span class="bsp-switch-copy">
-              <span class="bsp-switch-title" data-i18n="autoPage">Auto page</span>
-              <span class="bsp-switch-desc" data-i18n="autoPageDesc">Load the next page at the bottom</span>
-            </span>
-            <span class="bsp-switch-track" aria-hidden="true">
-              <span class="bsp-switch-thumb"></span>
-            </span>
-          </label>
-        </section>
         <details class="bsp-advanced bsp-all-advanced">
           <summary data-i18n="advanced">Advanced</summary>
+          <section class="bsp-section" aria-labelledby="bsp-clean-title">
+            <div class="bsp-section-head"><h2 id="bsp-clean-title" data-i18n="cleanResults">Clean up results</h2></div>
+            <label class="bsp-check"><input type="checkbox" name="collapsePaa"><span data-i18n="collapsePaa">Collapse People Also Ask</span></label>
+            <label class="bsp-check"><input type="checkbox" name="collapseVideos"><span data-i18n="collapseVideos">Collapse video carousels</span></label>
+            <label class="bsp-check"><input type="checkbox" name="collapseSnippets"><span data-i18n="collapseSnippets">Collapse featured snippets</span></label>
+            <p class="bsp-field-hint" data-i18n="blocksHint">Each block can still be expanded on the page.</p>
+            <label class="bsp-switch">
+              <input type="checkbox" name="autoPage">
+              <span class="bsp-switch-copy">
+                <span class="bsp-switch-title" data-i18n="autoPage">Auto page</span>
+                <span class="bsp-switch-desc" data-i18n="autoPageDesc">Load the next page at the bottom</span>
+              </span>
+              <span class="bsp-switch-track" aria-hidden="true">
+                <span class="bsp-switch-thumb"></span>
+              </span>
+            </label>
+          </section>
           <section class="bsp-section" id="bsp-domain-controls" aria-labelledby="bsp-domains-title">
             <div class="bsp-section-head"><h2 id="bsp-domains-title" data-i18n="domainTitle">Hide domains on this page</h2></div>
             <fieldset disabled>

@@ -362,6 +362,14 @@ body {
 }
 .bsp-presets button[aria-pressed="true"] { border-color: var(--bsp-primary); color: var(--bsp-primary); background: #edf3ff; }
 .bsp-presets button:focus-visible { outline: 2px solid var(--bsp-primary); outline-offset: 2px; }
+.bsp-preset-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--bsp-primary-soft);
+  color: var(--bsp-primary-deep);
+  font-size: 11px;
+  font-weight: 600;
+}
 .bsp-all-advanced { padding: 14px; border: 1px solid var(--bsp-line); border-radius: 12px; }
 .bsp-domain-label { display: grid; gap: 6px; }
 #bsp-domain-controls fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
