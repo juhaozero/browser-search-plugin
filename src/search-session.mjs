@@ -1,4 +1,4 @@
-import { BAIDU_HOSTS, GOOGLE_HOSTS, BING_HOSTS } from "./search-hosts.mjs";
+import { GOOGLE_HOSTS, BING_HOSTS, isBaiduSearchPath } from "./search-hosts.mjs";
 import { isSpecialResult, resultBlocks } from "./result-blocks.mjs";
 import { createDuckDuckGoSession, duckDuckGoTitleLink, isDuckDuckGoWeb } from "./duckduckgo.mjs";
 
@@ -424,8 +424,7 @@ function isBingWeb(url) {
 }
 
 function isBaiduWeb(url) {
-  return url.protocol === "https:" && BAIDU_HOSTS.includes(url.hostname) && url.pathname === "/s"
-    && Boolean(baiduQuery(url)?.trim());
+  return isBaiduSearchPath(url) && Boolean(baiduQuery(url)?.trim());
 }
 
 function baiduQuery(url) {

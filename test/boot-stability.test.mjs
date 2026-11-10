@@ -93,3 +93,27 @@ test("并发同查询 boot 风暴后最终仍应保留结果盒", async () => {
   assert.ok(document.getElementById("bsp-results"));
   lifecycle.disposeAll();
 });
+
+test("百度较早的查询晚读到偏好时不会改动已经就绪的布局", async () => {
+  const { document } = parseHTML('<html><body><div id="content_left"></div></body></html>');
+  const older = "https://www.baidu.com/s?wd=old";
+  let finishOld;
+  const oldPrefs = new Promise(resolve => { finishOld = resolve; });
+  const prefs = { columnMode: "double", autoPage: false };
+  const lifecycle = createContentLifecycle({ isDesktopWebSearch,
+    bootSearchPage: (doc, url, isCurrent) => bootSearchPage(doc, url, {}, {
+      prefsStore: { load: () => url === older ? oldPrefs : Promise.resolve(prefs) },
+      isCurrent, attachScroll: false, watchDom: false,
+    }),
+  });
+  try {
+    const oldBoot = lifecycle.start(document, older);
+    const latest = await lifecycle.start(document, "https://www.baidu.com/s?wd=new", "navigate");
+    finishOld({ ...prefs, columnMode: "single" });
+    assert.equal(await oldBoot, null);
+    assert.equal(lifecycle.getActive(), latest);
+    assert.equal(document.documentElement.dataset.bspColumnMode, "double");
+  } finally {
+    lifecycle.disposeAll();
+  }
+});

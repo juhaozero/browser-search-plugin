@@ -27,7 +27,7 @@ test("installed extension applies Baidu layout on the first search without a rel
             event.preventDefault();
             history.pushState({}, '', '/s?wd=example');
             requestAnimationFrame(() => {
-              document.body.innerHTML = '<div id="content_left"><div class="result c-container"><h3><a href="https://example.com/">Result</a></h3></div></div>';
+              document.body.innerHTML = '<div id="wrapper"><div id="container"><div id="content_left"><div class="result c-container"><h3><a href="https://example.com/">Result</a></h3></div></div></div></div>';
             });
           });
         </script>` });
@@ -39,6 +39,17 @@ test("installed extension applies Baidu layout on the first search without a rel
     await page.waitForSelector('html[data-bsp-column-mode="double"] #content_left > [data-bsp-result]', { timeout: 4000 });
     assert.equal(page.url(), "https://www.baidu.com/s?wd=example");
     assert.equal(await page.evaluate(() => performance.getEntriesByType("navigation")[0].name), "https://www.baidu.com/?from=fixture");
+    await page.evaluate(() => history.pushState({}, "", "/s?wd=next"));
+    await page.waitForFunction(() => document.documentElement.dataset.bspReady === "1");
+    await page.$eval("#container", container => {
+      container.outerHTML = `<div id="container"><div id="content_left">
+        <div class="result c-container"><h3><a href="https://example.com/one">One</a></h3></div>
+        <div class="result c-container"><h3><a href="https://example.com/two">Two</a></h3></div>
+      </div></div>`;
+    });
+    await page.waitForFunction(() => document.querySelectorAll("#content_left > [data-bsp-result]").length === 2);
+    const [first, second] = await page.$$eval("#content_left > [data-bsp-result]", cards => cards.map(card => card.getBoundingClientRect().left));
+    assert.ok(first < second);
   } finally {
     await browser.close();
   }

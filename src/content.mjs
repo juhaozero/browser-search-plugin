@@ -25,7 +25,10 @@ if (previous && typeof previous.disposeAll === "function") {
   }
 }
 
-const lifecycle = createContentLifecycle({ bootSearchPage, isDesktopWebSearch });
+const lifecycle = createContentLifecycle({
+  bootSearchPage: (document, url, isCurrent) => bootSearchPage(document, url, {}, { isCurrent }),
+  isDesktopWebSearch,
+});
 
 async function start(reason = "boot") {
   if (!isExtensionContextValid()) {

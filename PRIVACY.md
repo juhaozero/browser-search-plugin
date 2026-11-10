@@ -1,10 +1,10 @@
 # SearchLayout Privacy Policy
 
-Last updated: 2026-10-30
+Last updated: 2026-11-10
 
 This Privacy Policy describes how the **SearchLayout** Chrome extension (“the Extension”) handles information when you install and use it.
 
-SearchLayout helps you read Google, Bing, and DuckDuckGo **desktop web search result pages** with single- or dual-column layouts and optional automatic pagination.
+SearchLayout helps you read Google, Bing, DuckDuckGo, and Baidu **desktop web search result pages** with single- or dual-column layouts and optional automatic pagination.
 
 ---
 
@@ -68,6 +68,7 @@ The Extension requests:
 
 - **`storage`** — to save and load your preferences
 - **Access to Google, Bing, DuckDuckGo, and Baidu desktop search results** through content scripts that arrange results and, on supported engines, optionally load more in the browser
+- **Access to the Baidu homepage** through a content script that detects in-page navigation to search results so the layout applies on the first search
 
 It does not request broad access such as all websites.
 
@@ -136,7 +137,7 @@ Questions about this Privacy Policy or the Extension:
 
 ## 中文摘要
 
-**SearchLayout** 是一款 Chrome 扩展，用于在 Google、Bing 和 DuckDuckGo 的桌面网页搜索结果页上调整布局，并可选自动翻页。DuckDuckGo 自动翻页使用页面自带的「更多结果」按钮。
+**SearchLayout** 是一款 Chrome 扩展，用于在 Google、Bing、DuckDuckGo 和百度的桌面网页搜索结果页上调整布局，并可选自动翻页。DuckDuckGo 自动翻页使用页面自带的「更多结果」按钮。
 百度桌面网页搜索也支持调整布局和自动翻页。扩展在百度首页监听站内搜索跳转，并在进入结果页时应用布局。自动翻页在浏览器中请求百度分页链接。
 
 - **不**向开发者自有服务器上传你的搜索词、浏览历史或页面内容。

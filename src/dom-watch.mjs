@@ -1,5 +1,5 @@
 import { isOwnDomElement } from "./layout-dom.mjs";
-import { DOM_MUTE_FLAG, RELAYOUT_FLAG } from "./layout-constants.mjs";
+import { DOM_MUTE_FLAG, NATIVE_SITE_ICON, RELAYOUT_FLAG, SMALL_SITE_ICON } from "./layout-constants.mjs";
 import { findLayoutShell } from "./layout-dom.mjs";
 
 const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "b_results", "b_content", "web_content_wrapper"];
@@ -44,15 +44,17 @@ function resolveResultsWatchRoot(document) {
     const el = document.getElementById(id);
     if (el) return el;
   }
-  return document.getElementById("content_left")?.parentElement ?? null;
+  const baiduResults = document.getElementById("content_left");
+  return baiduResults?.closest("#wrapper_wrapper") ?? baiduResults?.closest("#wrapper") ?? baiduResults?.parentElement ?? null;
 }
 
 /**
  * @param {Document} document
  * @param {() => void} onChange
+ * @param {() => boolean} [watchIcons]
  * @returns {{ dispose: () => void, runMuted: <T>(fn: () => T) => T }}
  */
-function watchResults(document, onChange) {
+function watchResults(document, onChange, watchIcons = () => false) {
   const noop = {
     dispose() {},
     runMuted(fn) {
@@ -83,7 +85,8 @@ function watchResults(document, onChange) {
     if (muteDepth > 0) return;
     if (document.documentElement.dataset[RELAYOUT_FLAG]) return;
     if (document.documentElement.dataset[DOM_MUTE_FLAG]) return;
-    if (records.every(isOwnDomMutation)) return;
+    const iconChanged = watchIcons() && records.some(isSiteIconMutation);
+    if (!iconChanged && records.every(record => record.type === "attributes" || isOwnDomMutation(record))) return;
     if (timer) return;
     timer = (globalThis.setTimeout ?? setTimeout)(() => {
       timer = 0;
@@ -98,7 +101,7 @@ function watchResults(document, onChange) {
   const attach = (root) => {
     if ([...observedScopes].some(scope => scope.contains(root))) return;
     const obs = new MutationObserver(onMutations);
-    obs.observe(root, { childList: true, subtree: true });
+    obs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "data-src"] });
     observers.push(obs);
     observedScopes.add(root);
   };
@@ -184,6 +187,15 @@ function isOwnDomMutation(record) {
   if (record.removedNodes?.length) touched.push(...record.removedNodes);
   if (touched.length === 0) return false;
   return touched.every(isOwnDomNode);
+}
+
+const SITE_ICONS = `${NATIVE_SITE_ICON}, ${SMALL_SITE_ICON}`;
+
+function isSiteIconMutation({ target, type, addedNodes, removedNodes }) {
+  if (!target.closest?.("[data-bsp-result]") || target.closest(".bsp-site-badge")) return false;
+  if (type === "attributes") return target.matches(SITE_ICONS);
+  return [...addedNodes, ...removedNodes].some(node => !node.matches?.(".bsp-site-badge")
+    && (node.matches?.(SITE_ICONS) || node.querySelector?.(SITE_ICONS)));
 }
 
 /**

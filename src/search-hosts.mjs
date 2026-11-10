@@ -51,10 +51,15 @@ export const BING_HOSTS = [
 
 export const DUCKDUCKGO_HOST = "duckduckgo.com";
 export const BAIDU_HOSTS = ["www.baidu.com", "baidu.com"];
+const BAIDU_SEARCH_PATH = "/s";
+
+export function isBaiduSearchPath(url) {
+  return url.protocol === "https:" && BAIDU_HOSTS.includes(url.hostname) && url.pathname === BAIDU_SEARCH_PATH;
+}
 
 export const SEARCH_MATCHES = [
   ...[...BING_HOSTS, ...GOOGLE_HOSTS].map(host => `https://${host}/search*`),
   `https://${DUCKDUCKGO_HOST}/?*q=*`,
   // Baidu can enter its results page from the homepage without loading a new document.
-  ...BAIDU_HOSTS.flatMap(host => [`https://${host}/s?*`, `https://${host}/`, `https://${host}/?*`]),
+  ...BAIDU_HOSTS.flatMap(host => [`https://${host}${BAIDU_SEARCH_PATH}?*`, `https://${host}/`, `https://${host}/?*`]),
 ];

@@ -1,6 +1,6 @@
 # SearchLayout
 
-Chrome 扩展：把 **Google、Bing 和 DuckDuckGo 的桌面网页搜索结果**排成更易读的单列或双列，并支持自动翻页。
+Chrome 扩展：把 **Google、Bing、DuckDuckGo 和百度的桌面网页搜索结果**排成更易读的单列或双列，并支持自动翻页。
 
 ![谷歌搜索结果双列布局示意](./extension/store-assets/screenshot-04-dual-column-live.png)
 

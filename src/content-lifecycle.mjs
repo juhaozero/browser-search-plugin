@@ -1,4 +1,4 @@
-import { BAIDU_HOSTS, DUCKDUCKGO_HOST } from "./search-hosts.mjs";
+import { DUCKDUCKGO_HOST, isBaiduSearchPath } from "./search-hosts.mjs";
 
 /**
  * Content-script boot 生命周期：用世代号避免 SPA 快速导航时并发 boot 泄漏 observer。
@@ -28,7 +28,7 @@ export function searchPageKey(url) {
   try {
     const parsed = new URL(url);
     const q = parsed.searchParams.get("q");
-    if (BAIDU_HOSTS.includes(parsed.hostname) && parsed.pathname === "/s") {
+    if (isBaiduSearchPath(parsed)) {
       return JSON.stringify(["baidu", parsed.hostname,
         parsed.searchParams.get("wd") ?? parsed.searchParams.get("word"),
         ...["pn", "rn", "tn", "gpc"].map(key => parsed.searchParams.get(key) || "")]);
@@ -56,7 +56,7 @@ export function searchPageKey(url) {
 
 /**
  * @param {{
- *   bootSearchPage: (document: Document, url: string) => Promise<{ dispose?: () => void } | null>,
+ *   bootSearchPage: (document: Document, url: string, isCurrent: () => boolean) => Promise<{ dispose?: () => void } | null>,
  *   isDesktopWebSearch: (url: string) => boolean,
  * }} deps
  */
@@ -98,6 +98,7 @@ export function createContentLifecycle(deps) {
     }
 
     const generation = ++bootGeneration;
+    const isCurrent = () => generation === bootGeneration && isExtensionContextValid();
     const prev = active;
     active = null;
     lastKey = key;
@@ -110,13 +111,13 @@ export function createContentLifecycle(deps) {
 
     let next;
     try {
-      next = await deps.bootSearchPage(document, url);
+      next = await deps.bootSearchPage(document, url, isCurrent);
     } catch {
       if (generation === bootGeneration) bootingKey = "";
       return null;
     }
 
-    if (!isExtensionContextValid() || generation !== bootGeneration) {
+    if (!isCurrent()) {
       try {
         next?.dispose?.();
       } catch {

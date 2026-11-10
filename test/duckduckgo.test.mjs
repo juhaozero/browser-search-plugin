@@ -116,3 +116,72 @@ test("DuckDuckGo 离开搜索页时取消等待原生结果", async () => {
   assert.equal(document.getElementById("bsp-status"), null);
   assert.equal(boot.session.appendedPages, 0);
 });
+
+test("DuckDuckGo 隐藏追加的重复结果，末页请求期间关闭再打开时保留结束状态", async () => {
+  const document = fixture();
+  const list = findResultsShell(document);
+  const button = document.getElementById("more-results");
+  const prefs = { pagesPerBatch: 1, autoPage: true };
+  const boot = await bootSearchPage(document, url, {}, { prefs, attachScroll: false });
+  try {
+    const loading = boot.pager.check(nearBottom);
+    boot.applyPrefs({ ...prefs, autoPage: false });
+    list.insertAdjacentHTML("beforeend", item("first").replace('id="first"', 'id="duplicate"'));
+    await new Promise(resolve => setTimeout(resolve, 150));
+    list.insertAdjacentHTML("beforeend", item("last"));
+    button.remove();
+    assert.equal((await loading).fetched, false);
+    const duplicate = document.getElementById("duplicate");
+    assert.ok(duplicate.hasAttribute("data-bsp-duplicate-result"));
+    assert.deepEqual(boot.session.items.map(element => element.id), ["first", "second", "last"]);
+    boot.applyPrefs(prefs);
+    assert.equal(boot.pager.stopped, true);
+    assert.match(document.getElementById("bsp-status").textContent, /No more|没有更多/);
+    assert.equal(document.querySelectorAll("#bsp-status button").length, 1);
+    boot.dispose();
+    assert.equal(duplicate.hasAttribute("data-bsp-duplicate-result"), false);
+  } finally {
+    boot.dispose();
+  }
+});
+
+test("DuckDuckGo 一批全是重复结果时，原生按钮仍可加载下一批", async () => {
+  const document = fixture();
+  const list = findResultsShell(document);
+  const button = document.getElementById("more-results");
+  const boot = await bootSearchPage(document, url, {}, { prefs: { pagesPerBatch: 2 }, attachScroll: false });
+  button.addEventListener("click", () => { button.disabled = true; }, { once: true });
+  try {
+    const loading = boot.pager.check(nearBottom);
+    list.insertAdjacentHTML("beforeend", item("first").replace('id="first"', 'id="duplicate"'));
+    button.disabled = false;
+    assert.deepEqual(await loading, { added: 0, fetched: false, stopped: false });
+    button.addEventListener("click", () => list.insertAdjacentHTML("beforeend", item("new")), { once: true });
+    assert.equal((await boot.pager.check(nearBottom)).added, 1);
+    assert.equal(boot.session.appendedPages, 2);
+  } finally {
+    boot.dispose();
+  }
+});
+
+test("DuckDuckGo 原生按钮重新挂载后可以从暂时的末页恢复", async () => {
+  const document = fixture();
+  const list = findResultsShell(document);
+  const button = document.getElementById("more-results");
+  const boot = await bootSearchPage(document, url, {}, { prefs: { pagesPerBatch: 1 }, attachScroll: false });
+  button.addEventListener("click", () => {
+    button.remove();
+    list.insertAdjacentHTML("beforeend", item("page2"));
+  }, { once: true });
+  try {
+    assert.equal((await boot.pager.check(nearBottom)).stopped, true);
+    assert.match(document.getElementById("bsp-status").textContent, /No more|没有更多/);
+    list.after(button);
+    button.addEventListener("click", () => list.insertAdjacentHTML("beforeend", item("page3")), { once: true });
+    await boot.pager.check(nearBottom);
+    assert.match(document.getElementById("bsp-status").textContent, /paused|暂停/);
+    assert.equal((await boot.pager.continueLoading()).added, 1);
+  } finally {
+    boot.dispose();
+  }
+});

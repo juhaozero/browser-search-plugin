@@ -21,6 +21,7 @@ import { createResultTools } from "./result-tools.mjs";
  *   fetchDocument?: (url: string, signal?: AbortSignal) => Promise<Document>,
  *   attachScroll?: boolean,
  *   watchDom?: boolean,
+ *   isCurrent?: () => boolean,
  * }} [deps]
  */
 async function bootSearchPage(document, url, layout = {}, deps = {}) {
@@ -33,6 +34,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
   const [rawPrefs, savedLocale] = await Promise.all([
     deps.prefs ?? (store ? store.load() : DEFAULT_PREFS), localeStore.load(),
   ]);
+  if (deps.isCurrent?.() === false) return null;
   let prefs = normalizePrefs(rawPrefs);
   let locale = savedLocale;
   const appearance = createPageAppearance(document);
@@ -79,7 +81,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
       });
       // check/ingest 在 mute 外发起请求，真正改 DOM 时走 pager.mutate → runMuted
       void pager.check();
-    });
+    }, () => prefs.emphasizeSite);
   }
 
   const applyPrefs = (next) => {

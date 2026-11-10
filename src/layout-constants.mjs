@@ -70,6 +70,9 @@ const ASIDE_IDS = ["rhs", "b_context"];
 /** 结果列外壳：谷歌 #rcnt；必应旧版 #b_mcw；新版无 mcw 时用 #b_content */
 const LAYOUT_SHELL_IDS = ["rcnt", "b_mcw", "b_content"];
 
+export const NATIVE_SITE_ICON = '.b_favicon img, .siteicon img, img.XNo5Ab, img[src*="/ip3/"]';
+export const SMALL_SITE_ICON = 'img:is([width="16"], [width="20"], [width="24"])';
+
 /** 顶部 AI/通栏答案独占一行，结果列与侧栏排在下一行 */
 const WRAPPING_SHELL_IDS = new Set(["rcnt", "b_mcw", "b_content"]);
 

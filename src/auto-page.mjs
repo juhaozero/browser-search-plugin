@@ -12,6 +12,7 @@ const NEAR_BOTTOM_PX = DEFAULT_PREFS.nearBottomPx;
  *   session: {
  *     ingest?: (doc: Document) => { added: number, stopped: boolean },
  *     nextControl?: () => HTMLButtonElement | null,
+ *     isAtEnd?: () => boolean,
  *     loadNext?: (button: HTMLButtonElement, signal?: AbortSignal) => Promise<{ added: number, stopped: boolean }>,
  *     appendedPages: number,
  *     autoPage: boolean,
@@ -42,6 +43,7 @@ export function createAutoPager(options) {
   let stopped = false;
   let disposed = false;
   let needLeaveBottom = false;
+  let noNextLink = false;
   let tip = null;
   let pageLimit = config.pagesPerBatch;
   let status = "loaded";
@@ -92,7 +94,19 @@ export function createAutoPager(options) {
     retry,
     continueLoading,
     async check(metrics) {
-      if (disposed || !enabled || !session.autoPage || stopped || busy) return { fetched: false };
+      if (disposed || !enabled || !session.autoPage || busy) return { fetched: false };
+      if (status !== "end" && session.appendedPages > 0 && session.isAtEnd?.()) return finish();
+      if (status === "end" && session.nextControl?.()) {
+        stopped = session.appendedPages >= pageLimit;
+        showTip(stopped ? "limit" : "loaded");
+      }
+      // A same-document search can render its pagination after the layout starts.
+      if (noNextLink && currentDocument === document && nextPageUrl(currentUrl, document)) {
+        noNextLink = false;
+        stopped = false;
+        showTip("loaded");
+      }
+      if (stopped) return { fetched: false };
       const near = isNearBottom(document, metrics, nearBottomPx);
       if (!near) {
         needLeaveBottom = false;
@@ -123,6 +137,7 @@ export function createAutoPager(options) {
 
   function continueLoading() {
     if (disposed || !enabled || !session.autoPage || busy || status !== "limit") return Promise.resolve({ fetched: false });
+    if (session.isAtEnd?.()) return Promise.resolve(finish());
     if (session.loadNext && !session.nextControl()) return Promise.resolve({ fetched: false });
     pageLimit = session.appendedPages + config.pagesPerBatch;
     stopped = false;
@@ -140,18 +155,18 @@ export function createAutoPager(options) {
     if (session.loadNext && !nativeControl) return { fetched: false };
     const next = session.loadNext ? null : nextPageUrl(currentUrl, currentDocument);
     if (!nativeControl && !next) {
-      stopped = true;
-      showTip("end");
-      return { fetched: false, stopped: true };
+      noNextLink = true;
+      return finish();
     }
     busy = true;
     showTip("loading");
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     inflight = ac;
     try {
+      const previousPages = session.appendedPages;
       const nativeResult = nativeControl ? await session.loadNext(nativeControl, ac?.signal) : null;
       const nextDocument = next ? await options.fetchDocument(next, ac?.signal) : null;
-      if (disposed || !enabled || !session.autoPage || ac?.signal.aborted) {
+      if (disposed || ac?.signal.aborted || (!nativeResult && (!enabled || !session.autoPage))) {
         clearTip();
         return { fetched: false };
       }
@@ -160,10 +175,6 @@ export function createAutoPager(options) {
         if (result.added) options.onIngest?.();
         return result;
       });
-      if (disposed || !enabled || !session.autoPage) {
-        clearTip();
-        return { fetched: false };
-      }
       if (result.added > 0 && nextDocument) {
         currentUrl = next;
         currentDocument = nextDocument;
@@ -171,13 +182,14 @@ export function createAutoPager(options) {
       if (config.autoContinue && session.appendedPages >= pageLimit) pageLimit += config.pagesPerBatch;
       stopped = result.stopped || session.appendedPages >= pageLimit;
       showTip(result.stopped ? "end" : stopped ? "limit" : "loaded");
-      if (config.autoContinue && result.added > 0 && !stopped) queueMicrotask(() => { void api.check(); });
+      if (!enabled || !session.autoPage) return { fetched: false };
+      if (config.autoContinue && session.appendedPages > previousPages && !stopped) queueMicrotask(() => { void api.check(); });
       return { ...result, fetched: result.added > 0, stopped };
     } catch (error) {
-      if (disposed || !enabled || !session.autoPage || ac?.signal.aborted || isAbortError(error)) return { fetched: false, failed: false };
+      if (disposed || ac?.signal.aborted || isAbortError(error)) return { fetched: false, failed: false };
       showTip("failed");
       needLeaveBottom = true;
-      return { fetched: false, failed: true };
+      return { fetched: false, failed: enabled && session.autoPage };
     } finally {
       if (inflight === ac) inflight = null;
       busy = false;
@@ -185,9 +197,15 @@ export function createAutoPager(options) {
     }
   }
 
+  function finish() {
+    stopped = true;
+    showTip("end");
+    return { fetched: false, stopped: true };
+  }
+
   function showTip(nextStatus) {
     status = nextStatus;
-    renderStatus();
+    if (enabled && session.autoPage) renderStatus();
   }
 
   function renderStatus() {
@@ -307,9 +325,38 @@ export async function fetchHtmlDocument(url, signal) {
   const document = new DOMParser().parseFromString(html, "text/html");
   if (!document.querySelector("#rso, #search, #b_results, #content_left")) throw new Error("下一页未返回搜索结果，请稍后重试");
   const requested = new URL(url);
-  if (BING_HOSTS.includes(requested.hostname) && Number(requested.searchParams.get("first")) > 1
-    && document.querySelector("#b_results .sb_pagS")?.textContent.trim() === "1") {
-    throw new Error("必应返回了第一页，请重试");
+  if (BING_HOSTS.includes(requested.hostname) && !matchesBingPage(document, requested, response.url)) {
+    throw new Error("必应返回了其他分页，请重试");
   }
   return document;
+}
+
+function matchesBingPage(document, requested, responseUrl) {
+  const expected = Number(requested.searchParams.get("first"));
+  if (expected <= 1) return true;
+  const offset = href => {
+    if (!href) return null;
+    try {
+      const page = new URL(href, requested);
+      if (!BING_HOSTS.includes(page.hostname) || page.pathname !== requested.pathname) return null;
+      const first = Number(page.searchParams.get("first") ?? 1);
+      return Number.isSafeInteger(first) && first > 0 ? first : null;
+    } catch {
+      return null;
+    }
+  };
+  if (responseUrl) {
+    const returned = new URL(responseUrl);
+    if (returned.protocol !== "https:" || offset(responseUrl) !== expected
+      || returned.searchParams.get("q") !== requested.searchParams.get("q")) return false;
+  }
+  const pagination = document.querySelector("#b_results .b_pag");
+  const current = pagination?.querySelector(".sb_pagS, [aria-current='page']");
+  if (current?.textContent.trim() === "1") return false;
+  const currentHref = current?.getAttribute("href");
+  const currentOffset = currentHref?.includes("?") ? offset(currentHref) : null;
+  if (currentOffset !== null && currentOffset !== expected) return false;
+  const previous = offset(pagination?.querySelector("a.sb_pagP")?.getAttribute("href"));
+  const next = offset(pagination?.querySelector("a.sb_pagN")?.getAttribute("href"));
+  return (previous === null || previous < expected) && (next === null || next > expected);
 }

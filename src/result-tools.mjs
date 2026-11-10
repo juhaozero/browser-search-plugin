@@ -3,6 +3,7 @@ import { safeWebUrl } from "./result-tabs.mjs";
 import { t } from "./i18n.mjs";
 import { BAIDU_HOSTS, BING_HOSTS, DUCKDUCKGO_HOST } from "./search-hosts.mjs";
 import { createDomainFilter } from "./domain-filter.mjs";
+import { NATIVE_SITE_ICON, SMALL_SITE_ICON } from "./layout-constants.mjs";
 
 export { titleLink };
 
@@ -84,7 +85,7 @@ export function createResultTools(document, url, session, sendMessage = message 
     domainFilter.refresh();
     root.setAttribute("data-bsp-dim-visited", String(prefs.dimVisited));
     const items = new Set(session.items);
-    for (const [item, badge] of badges) {
+    for (const [item, { badge }] of badges) {
       if (!prefs.emphasizeSite || !items.has(item)) { badge.remove(); badges.delete(item); }
     }
     for (const [item, previous] of marked) {
@@ -95,12 +96,19 @@ export function createResultTools(document, url, session, sendMessage = message 
       item.setAttribute("data-bsp-result", "");
       if (!prefs.emphasizeSite) continue;
       const destination = resultDestination(item);
-      const host = destination ? new URL(destination).hostname : "";
+      const favicon = destination ? new URL("/favicon.ico", destination) : null;
+      if (favicon) favicon.protocol = "https:";
+      const fallback = favicon?.href;
+      const nativeIcon = item.querySelector(`:is(${NATIVE_SITE_ICON}):not(.bsp-site-badge img)`)
+        ?? item.querySelector(`${SMALL_SITE_ICON}:not(.bsp-site-badge img)`);
+      const source = nativeIcon?.getAttribute("data-src") || nativeIcon?.getAttribute("src");
+      const nativeSrc = source && (/^data:image\//i.test(source) ? source : safeWebUrl(source, url));
       const existing = badges.get(item);
-      if (existing?.dataset.host === host && existing.parentNode === item) continue;
-      existing?.remove();
+      if (existing?.badge.parentNode === item && existing.nativeSrc === nativeSrc && existing.fallback === fallback) continue;
+      existing?.badge.remove();
       badges.delete(item);
-      if (!host) continue;
+      if (!fallback) continue;
+      const host = favicon.hostname;
       const badge = document.createElement("div");
       badge.className = "bsp-site-badge";
       badge.dataset.host = host;
@@ -108,12 +116,6 @@ export function createResultTools(document, url, session, sendMessage = message 
       icon.className = "bsp-site-icon";
       icon.setAttribute("aria-hidden", "true");
       icon.textContent = host.replace(/^www\./, "").slice(0, 1).toUpperCase();
-      const nativeIcon = item.querySelector('.b_favicon img, .siteicon img, img.XNo5Ab, img[src*="/ip3/"]');
-      const source = nativeIcon?.getAttribute("data-src") || nativeIcon?.getAttribute("src");
-      const nativeSrc = source && (/^data:image\//i.test(source) ? source : safeWebUrl(source, url));
-      const favicon = new URL("/favicon.ico", destination);
-      favicon.protocol = "https:";
-      const fallback = favicon.href;
       const image = document.createElement("img");
       image.alt = "";
       image.referrerPolicy = "no-referrer";
@@ -129,7 +131,7 @@ export function createResultTools(document, url, session, sendMessage = message 
       label.textContent = host;
       badge.append(icon, label);
       item.prepend(badge);
-      badges.set(item, badge);
+      badges.set(item, { badge, nativeSrc, fallback });
     }
     refreshOpened();
     const links = prefs.pinRelated ? relatedLinks(document, url, session.engine) : [];
@@ -237,7 +239,7 @@ export function createResultTools(document, url, session, sendMessage = message 
     try { runtime?.onMessage?.removeListener(onDomainsMessage); } catch { /* Context invalidated. */ }
     document.removeEventListener("click", onClick, true);
     if (session.engine === "bing") document.removeEventListener("auxclick", onClick, true);
-    for (const badge of badges.values()) badge.remove();
+    for (const { badge } of badges.values()) badge.remove();
     for (const [item, value] of marked) restoreMark(item, value);
     for (const error of errors) error.remove();
     for (const [link, value] of openedLinks) restoreOpened(link, value);

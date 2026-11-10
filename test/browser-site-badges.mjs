@@ -63,6 +63,13 @@ test("site badges stay compact and use the destination domain on all four engine
         throw new Error(`${url}: ${icon}`, { cause: error });
       });
       assert.equal(await page.$$eval(".bsp-site-badge", badges => badges.length), 1, url);
+      if (url.includes("google.com")) {
+        await page.$eval("img.XNo5Ab", (image, src) => { image.src = src; }, icon);
+        await page.waitForFunction(src => {
+          const image = document.querySelector(".bsp-site-icon img");
+          return image?.src === src && image.naturalWidth > 0;
+        }, { timeout: 4000 }, icon);
+      }
       assert.equal(await page.evaluate(() => badgeLayout.pageDomains.set("example.org").count), 1, url);
       await page.evaluate(() => badgeLayout.dispose());
     }

@@ -1,6 +1,6 @@
 # SearchLayout
 
-A Chrome extension that makes **Google, Bing, and DuckDuckGo desktop web search results** easier to read with single- and dual-column layouts and optional automatic pagination.
+A Chrome extension that makes **Google, Bing, DuckDuckGo, and Baidu desktop web search results** easier to read with single- and dual-column layouts and optional automatic pagination.
 
 ![Dual-column layout on Google Search](./extension/store-assets/screenshot-04-dual-column-live.png)
 

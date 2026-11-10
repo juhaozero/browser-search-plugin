@@ -151,7 +151,15 @@ test("下一页网络错误和验证页面作为失败处理，并保留请求�
     globalThis.fetch = async () => ({ ok: true, text: async () => '<html><body>Verify you are human</body></html>' });
     await assert.rejects(fetchHtmlDocument(url), /未返回搜索结果/);
     globalThis.fetch = async () => ({ ok: true, text: async () => '<ol id="b_results"><li class="b_pag"><a class="sb_pagS">1</a></li></ol>' });
-    await assert.rejects(fetchHtmlDocument("https://cn.bing.com/search?q=test&first=9"), /返回了第一页/);
+    await assert.rejects(fetchHtmlDocument("https://cn.bing.com/search?q=test&first=9"), /返回了其他分页/);
+    const secondPage = '<ol id="b_results"><li class="b_pag"><a class="sb_pagS" href="#">2</a><a class="sb_pagN" href="?q=test&amp;first=19">Next</a></li></ol>';
+    globalThis.fetch = async () => ({ ok: true, text: async () => secondPage });
+    await assert.rejects(fetchHtmlDocument("https://cn.bing.com/search?q=test&first=19"), /返回了其他分页/);
+    assert.ok(await fetchHtmlDocument("https://cn.bing.com/search?q=test&first=9"));
+    globalThis.fetch = async () => ({ ok: true, url: "https://cn.bing.com/search?q=test&first=9", text: async () => '<ol id="b_results"></ol>' });
+    await assert.rejects(fetchHtmlDocument("https://cn.bing.com/search?q=test&first=19"), /返回了其他分页/);
+    globalThis.fetch = async () => ({ ok: true, url: "https://cn.bing.com/search?q=other&first=19", text: async () => '<ol id="b_results"></ol>' });
+    await assert.rejects(fetchHtmlDocument("https://cn.bing.com/search?q=test&first=19"), /返回了其他分页/);
     const controller = new AbortController();
     controller.abort();
     globalThis.fetch = async (_url, options) => {
@@ -163,6 +171,26 @@ test("下一页网络错误和验证页面作为失败处理，并保留请求�
     globalThis.fetch = originalFetch;
     if (originalParser === undefined) delete globalThis.DOMParser;
     else globalThis.DOMParser = originalParser;
+  }
+});
+
+test("百度换词后原生分页迟到仍能恢复自动加载", async () => {
+  const url = "https://www.baidu.com/s?wd=new";
+  const markup = (id, query) => `<div id="content_left"><div class="result c-container"><h3><a href="https://example.org/${id}">${id}</a></h3></div></div>
+    <div tpl="app/page"><a class="n" href="?wd=${query}&amp;pn=10">Next</a></div>`;
+  const { document } = parseHTML(`<html><body>${markup("old", "old")}</body></html>`);
+  const session = createSearchSession(document, url, { columnMode: "double", autoPage: true });
+  const pager = createAutoPager({ document, session, url, fetchDocument: async next => {
+    assert.equal(next, `${url}&pn=10`);
+    return parseHTML(markup("page2", "new")).document;
+  } });
+  try {
+    assert.equal((await pager.check(near)).fetched, false);
+    document.querySelector('[tpl="app/page"] a').setAttribute("href", "?wd=new&pn=10");
+    assert.equal((await pager.check(near)).fetched, true);
+  } finally {
+    pager.dispose();
+    session.dispose();
   }
 });
 
