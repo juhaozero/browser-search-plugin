@@ -1,5 +1,6 @@
-import { GOOGLE_HOSTS, BING_HOSTS } from "./search-hosts.mjs";
+import { BAIDU_HOSTS, GOOGLE_HOSTS, BING_HOSTS } from "./search-hosts.mjs";
 import { isSpecialResult, resultBlocks } from "./result-blocks.mjs";
+import { createDuckDuckGoSession, duckDuckGoTitleLink, isDuckDuckGoWeb } from "./duckduckgo.mjs";
 
 const PAGE_SIZE = 10;
 
@@ -9,9 +10,7 @@ const PAGE_SIZE = 10;
 export function isDesktopWebSearch(url) {
   const parsed = readUrl(url);
   if (!parsed) return false;
-  if (isGoogleWeb(parsed)) return true;
-  if (isBingWeb(parsed)) return true;
-  return false;
+  return isGoogleWeb(parsed) || isBingWeb(parsed) || isDuckDuckGoWeb(parsed) || isBaiduWeb(parsed);
 }
 
 /**
@@ -21,13 +20,35 @@ export function isDesktopWebSearch(url) {
  */
 export function nextPageUrl(url, document) {
   const parsed = readUrl(url);
-  if (!parsed || !isDesktopWebSearch(url)) return null;
+  if (!parsed) return null;
+  if (isBaiduWeb(parsed)) {
+    const offset = Number(parsed.searchParams.get("pn") ?? "0");
+    if (!Number.isSafeInteger(offset) || offset < 0) return null;
+    for (const link of document?.querySelectorAll(':is(#page, [tpl="app/page"]) a:is(.n, [rel="next"])[href]') ?? []) {
+      try {
+        const next = new URL(link.getAttribute("href"), parsed);
+        const nextOffset = Number(next.searchParams.get("pn"));
+        if (next.origin === parsed.origin && isBaiduWeb(next) && baiduQuery(next) === baiduQuery(parsed)
+          && Number.isSafeInteger(nextOffset) && nextOffset > offset) return next.href;
+      } catch {
+        // Ignore invalid native pagination links.
+      }
+    }
+    return null;
+  }
+  if (!(isGoogleWeb(parsed) || isBingWeb(parsed))) return null;
   const bing = isBingWeb(parsed);
   const offsetKey = bing ? "first" : "start";
   const defaultOffset = bing ? 1 : 0;
   const offset = Number(parsed.searchParams.get(offsetKey) || defaultOffset);
   if (!Number.isSafeInteger(offset) || offset < defaultOffset) return null;
+  // Bing's regional redirect markers can send a valid pagination request back to page one.
+  if (bing) {
+    parsed.searchParams.delete("rdr");
+    parsed.searchParams.delete("rdrig");
+  }
   const href = document?.querySelector(bing ? "a.sb_pagN[href]" : "a#pnnext[href]")?.getAttribute("href");
+  if (!href && document?.querySelector(bing ? "a.sb_pagP[href]" : "a#pnprev[href]")) return null;
   if (href) {
     try {
       const next = new URL(href, parsed);
@@ -35,6 +56,10 @@ export function nextPageUrl(url, document) {
       if (next.origin === parsed.origin && isDesktopWebSearch(next.toString())
         && next.searchParams.get("q") === parsed.searchParams.get("q")
         && Number.isSafeInteger(nextOffset) && nextOffset > offset) {
+        if (bing) {
+          next.searchParams.delete("rdr");
+          next.searchParams.delete("rdrig");
+        }
         return next.toString();
       }
     } catch {
@@ -58,6 +83,8 @@ export function nextPageUrl(url, document) {
  * @param {{ columnMode?: string, autoPage?: boolean }} prefs
  */
 export function createSearchSession(document, url, prefs) {
+  const parsed = readUrl(url);
+  if (parsed && isDuckDuckGoWeb(parsed)) return createDuckDuckGoSession(document, prefs);
   const engine = detectEngine(url);
   if (!engine) throw new Error("不是桌面版网页搜索");
   const state = {
@@ -81,6 +108,9 @@ export function createSearchSession(document, url, prefs) {
     get engine() {
       return engine.name;
     },
+    get layoutMode() {
+      return engine.nativeLayout && state.columnMode !== "original" ? state.columnMode : null;
+    },
     ingest(nextDocument) {
       // 页数暂停由 pager 管理，用户可明确选择继续加载下一批。
       if (!state.autoPage) return { added: 0, stopped: true };
@@ -94,7 +124,12 @@ export function createSearchSession(document, url, prefs) {
       if (fresh.length === 0) return { added: 0, stopped: true };
       const dest = document.getElementById("bsp-results") ?? engine.resultsRoot(document);
       if (!dest) return { added: 0, stopped: true };
-      for (const item of fresh) dest.appendChild(document.importNode(item, true));
+      const pagination = engine.nativeLayout ? dest.querySelector(':scope > #page, :scope > [tpl="app/page"]') : null;
+      for (const item of fresh) {
+        const card = document.importNode(item, true);
+        if (engine.nativeLayout) card.removeAttribute("id");
+        dest.insertBefore(card, pagination);
+      }
       appendedPages += 1;
       return { added: fresh.length, stopped: false };
     },
@@ -109,12 +144,13 @@ export function createSearchSession(document, url, prefs) {
     },
     /** 还原原生结果 DOM，避免 SPA 反复 boot 时 #bsp-results 与 origin 注释堆积 */
     dispose() {
-      restoreOriginal();
+      if (!engine.nativeLayout) restoreOriginal();
       appendedPages = 0;
     },
   };
 
   function layout() {
+    if (engine.nativeLayout) return;
     switch (state.columnMode) {
       case "original":
         restoreOriginal();
@@ -266,6 +302,7 @@ function detectEngine(url) {
   if (!parsed) return null;
   if (isGoogleWeb(parsed)) return googleEngine;
   if (isBingWeb(parsed)) return bingEngine;
+  if (isBaiduWeb(parsed)) return baiduEngine;
   return null;
 }
 
@@ -305,7 +342,23 @@ const bingEngine = {
   },
 };
 
+const baiduEngine = {
+  name: "baidu",
+  nativeLayout: true,
+  resultsRoot(document) {
+    return document.getElementById("content_left");
+  },
+  organicItems(root) {
+    return [...root.querySelectorAll("#content_left > .result.c-container")].filter(titleLink);
+  },
+  itemHref(item) {
+    return item.getAttribute("mu")?.trim() || titleLink(item)?.getAttribute("href") || "";
+  },
+};
+
 export function titleLink(item) {
+  const duckDuckGoLink = duckDuckGoTitleLink(item);
+  if (duckDuckGoLink) return duckDuckGoLink;
   const heading = item.querySelector(item.matches("li.b_algo") ? "h2" : "h3");
   return heading?.querySelector("a[href]") ?? heading?.closest("a[href]") ?? null;
 }
@@ -368,6 +421,15 @@ function isBingWeb(url) {
   if (url.protocol !== "https:") return false;
   if (url.pathname !== "/search") return false;
   return Boolean(url.searchParams.get("q"));
+}
+
+function isBaiduWeb(url) {
+  return url.protocol === "https:" && BAIDU_HOSTS.includes(url.hostname) && url.pathname === "/s"
+    && Boolean(baiduQuery(url)?.trim());
+}
+
+function baiduQuery(url) {
+  return url.searchParams.get("wd") ?? url.searchParams.get("word");
 }
 
 /**

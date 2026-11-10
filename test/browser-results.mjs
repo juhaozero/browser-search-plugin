@@ -87,6 +87,26 @@ test("Chromium installed extension: background / foreground tabs, current tab, p
         assert.equal(await page.$$eval(title, (links, index) => getComputedStyle(links[index]).color, index), "rgb(115, 115, 135)");
         assert.equal(await page.$(".bsp-open-error"), null);
       }
+      if (engine === "bing") {
+        await popup.evaluate(() => chrome.storage.sync.set({ prefs: { resultOpenMode: "original", autoPage: false, dimVisited: true } }));
+        await page.waitForFunction(() => !document.querySelector(".bsp-site-badge"));
+        const destination = `${origin}/destination-fixture/bing-native`;
+        const tracking = `/ck/a?u=a1${Buffer.from(destination).toString("base64url")}`;
+        await page.$$eval(title, (links, { destination, tracking }) => {
+          const link = links[2];
+          link.href = tracking;
+          // Simulate Bing opening the decoded URL without visiting the tracking link.
+          link.addEventListener("click", event => {
+            event.preventDefault();
+            window.open(destination, "_blank");
+          });
+        }, { destination, tracking });
+        const targetPromise = browser.waitForTarget(target => target.type() === "page" && target.url() === destination);
+        await (await page.$$(title))[2].click();
+        await (await (await targetPromise).page()).close();
+        assert.equal(await page.$$eval(title, links => getComputedStyle(links[2]).color), "rgb(115, 115, 135)");
+        await popup.evaluate(() => chrome.storage.sync.set({ prefs: { autoPage: false, emphasizeSite: true, dimVisited: true } }));
+      }
       await page.reload({ waitUntil: "domcontentloaded" });
       await page.waitForSelector(".bsp-site-badge");
       assert.equal(await page.$("[data-bsp-opened]"), null);

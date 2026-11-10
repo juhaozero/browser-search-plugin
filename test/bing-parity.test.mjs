@@ -45,6 +45,8 @@ test("同查询不同追踪参数视为同一必应搜索页", () => {
 test("必应下一页读页面上的分页链接（每页条数不固定），读不到才按 first 推算", () => {
   const { document } = parseHTML(bingPage());
   assert.equal(nextPageUrl(URL_Q, document), "https://www.bing.com/search?q=edge&first=9&FORM=PORE");
+  document.querySelector(".sb_pagN").setAttribute("href", "/search?q=edge&first=9&FORM=PORE&FPIG=test&rdr=1&rdrig=token");
+  assert.equal(nextPageUrl(URL_Q, document), "https://www.bing.com/search?q=edge&first=9&FORM=PORE&FPIG=test");
   assert.equal(nextPageUrl(URL_Q), "https://www.bing.com/search?q=edge&first=11");
   assert.equal(nextPageUrl("https://www.bing.com/search?q=edge&first=11"), "https://www.bing.com/search?q=edge&first=21");
 });

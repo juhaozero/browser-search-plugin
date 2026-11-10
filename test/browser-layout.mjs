@@ -71,6 +71,16 @@ test("真实 Chromium：AI、数量、视口、动态插入、还原与观察器
           const columns=mode === "double" && width>=768 ? 2 : 1;
           assert.ok(Math.abs(g.cards[0].width-(g.box.width-(columns-1)*24)/columns)<1,label);
           assert.ok(g.box.right<=width && g.box.x>=0,label);
+          if (engine === "bing" && width >= 1920) {
+            const header = await page.evaluate(() => {
+              const box = selector => document.querySelector(selector).getBoundingClientRect();
+              const field = box(".b_searchboxForm");
+              return { center: field.left + field.width / 2, viewport: document.documentElement.clientWidth,
+                clear: field.left > box(".b_logoArea").right && field.right < box("#id_h").left,
+                inputFits: box(".b_searchbox").right < field.right };
+            });
+            assert.ok(Math.abs(header.center - header.viewport / 2) < 1 && header.clear && header.inputFits, label);
+          }
           assert.equal(g.navBorder,"0px",label);
           assert.equal(g.rhsVisible,true,label);
           for(let i=columns;i<g.cards.length;i++) assert.ok(g.cards[i].y>=g.cards[i-columns].bottom+21,label);

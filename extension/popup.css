@@ -371,6 +371,8 @@ body {
   font-weight: 600;
 }
 .bsp-all-advanced { padding: 14px; border: 1px solid var(--bsp-line); border-radius: 12px; }
+.bsp-all-advanced > .bsp-section { margin-block-start: 12px; }
+.bsp-all-advanced .bsp-switch { margin-block-start: 10px; }
 .bsp-domain-label { display: grid; gap: 6px; }
 #bsp-domain-controls fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
 #bsp-domain-controls input {

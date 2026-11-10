@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { LAYOUT_CSS_VARIABLES } from "../src/layout-constants.mjs";
-import { BING_HOSTS, GOOGLE_HOSTS, SEARCH_MATCHES } from "../src/search-hosts.mjs";
+import { BAIDU_HOSTS, BING_HOSTS, GOOGLE_HOSTS, SEARCH_MATCHES } from "../src/search-hosts.mjs";
 import { isDesktopWebSearch } from "../src/search-session.mjs";
 
 const read = path => readFileSync(new URL(path, import.meta.url), "utf8");
@@ -26,6 +26,13 @@ test("内容脚本权限与运行时主机策略一致，不接受未授权的 G
     assert.equal(isDesktopWebSearch(`https://${host}/search?q=test`), false, host);
   }
   assert.equal(isDesktopWebSearch("http://www.google.com/search?q=test"), false);
+  for (const host of BAIDU_HOSTS) {
+    assert.equal(isDesktopWebSearch(`https://${host}/s?wd=test`), true);
+    assert.equal(isDesktopWebSearch(`https://${host}/s?word=test`), true);
+    assert.equal(isDesktopWebSearch(`https://${host}/s`), false);
+  }
+  assert.equal(isDesktopWebSearch("https://badidu.com/s?wd=test"), false);
+  assert.equal(isDesktopWebSearch("https://m.baidu.com/s?wd=test"), false);
 });
 
 test("生成的 CSS 布局尺寸与 JS 权威值保持一致", () => {

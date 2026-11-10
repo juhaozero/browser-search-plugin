@@ -3,7 +3,8 @@ import { ASIDE_GAP, ASIDE_IDS, ASIDE_MAX, CARD_COLUMN_GAP, CARD_GAP, CENTERED_ST
 import { collectHeaderBands, placeBingResultCount, placeNavBands, refreshChromeLayout, sanitizeNavChrome } from "./nav-chrome.mjs";
 import { clearHorizontalMargin, isDisplayed, isElement, measureViewport, placeAtViewportCenter, rectOf, stampCentered } from "./layout-dom.mjs";
 import { bingSideRails, hideBingSideRails, stackBingFactRows } from "./bing-layout.mjs";
-import { alignGoogleSearchField, restoreGoogleSearchField } from "./search-field.mjs";
+import { alignBaiduSearchField, alignDuckDuckGoSearchField, alignEngineSearchField, restoreSearchField } from "./search-field.mjs";
+import { duckDuckGoResultsList } from "./duckduckgo.mjs";
 
 /**
  * @param {HTMLElement} box
@@ -255,7 +256,7 @@ function applyShellLayout(document, box, metrics) {
   }
   placeNavBands(document, metrics.shellWidth, metrics.targetLeft, placed);
   sanitizeNavChrome(document);
-  alignGoogleSearchField(document, metrics);
+  alignEngineSearchField(document, metrics);
 
   box.style.setProperty("width", "100%", "important");
   box.style.setProperty("max-width", "100%", "important");
@@ -418,7 +419,7 @@ function expandLayoutRoots(document) {
  * @param {Document} document
  */
 function clearCenteredLayout(document) {
-  restoreGoogleSearchField(document);
+  restoreSearchField(document);
   for (const el of document.querySelectorAll("[data-bsp-centered]")) {
     for (const prop of CENTERED_STYLE_PROPS) {
       el.style.removeProperty(prop);
@@ -435,6 +436,11 @@ function clearCenteredLayout(document) {
   root.style.removeProperty("--bsp-shell-width");
   root.style.removeProperty("--bsp-main-width");
   root.style.removeProperty("--bsp-target-left");
+  root.style.removeProperty("--bsp-native-offset");
+  for (const bar of document.querySelectorAll("[data-bsp-native-bar]")) {
+    bar.removeAttribute("data-bsp-native-bar");
+    bar.style.removeProperty("--bsp-native-bar-offset");
+  }
   const box = document.getElementById("bsp-results");
   if (!box) return;
   box.style.width = "";
@@ -457,6 +463,30 @@ function clearCenteredLayout(document) {
  * @param {{ viewportWidth?: number, parentLeft?: number }} layout
  */
 function realign(document, layout) {
+  const root = document.documentElement;
+  const baidu = root.dataset.bspEngine === "baidu";
+  if (baidu || root.dataset.bspEngine === "duckduckgo") {
+    const viewportWidth = layout.viewportWidth ?? (root.clientWidth || measureViewport());
+    const mode = root.dataset.bspColumnMode;
+    if (viewportWidth && (mode === "single-center" || mode === "double")) {
+      const list = baidu ? document.getElementById("content_left") : duckDuckGoResultsList(document);
+      // The native left rail can offset a viewport-wide list even after its width is uncapped.
+      root.style.removeProperty("--bsp-native-offset");
+      const { left, width } = rectOf(list);
+      if (width > 0) root.style.setProperty("--bsp-native-offset", `${(viewportWidth - width) / 2 - left}px`);
+      const bar = alignNativeBars(document, viewportWidth, baidu);
+      const anchor = width > 0 ? rectOf(list) : bar;
+      if (anchor.width > 0) {
+        const alignField = baidu ? alignBaiduSearchField : alignDuckDuckGoSearchField;
+        alignField(document, anchor, viewportWidth);
+      } else {
+        restoreSearchField(document);
+      }
+      return;
+    }
+    clearCenteredLayout(document);
+    return;
+  }
   const box = document.getElementById("bsp-results");
   if (!box) {
     clearCenteredLayout(document);
@@ -464,7 +494,29 @@ function realign(document, layout) {
   }
   // Apply scoped result-path CSS before measuring the search-field target.
   document.documentElement.dataset.bspActive = "1";
-  alignResultsBox(box, layout.viewportWidth ?? measureViewport());
+  const viewportWidth = root.dataset.bspEngine === "bing" ? root.clientWidth || measureViewport() : measureViewport();
+  alignResultsBox(box, layout.viewportWidth ?? viewportWidth);
+}
+
+function alignNativeBars(document, viewportWidth, baidu) {
+  const tabs = baidu ? document.querySelector("#s_tab_inner, #s_tab .s_tab_inner") ?? document.getElementById("s_tab")
+    : document.querySelector("#react-duckbar nav") ?? document.querySelector("#react-duckbar, .zcm-wrap");
+  const filters = baidu ? document.querySelector('[tpl="app/search-tool"]')
+    : document.querySelector('nav:has([data-testid="date-filter-trigger"], [data-testid="privacy-reminder"])')
+      ?? document.querySelector(".metabar__in, #react-filters");
+  for (const bar of document.querySelectorAll("[data-bsp-native-bar]")) {
+    if (bar === tabs || bar === filters) continue;
+    bar.removeAttribute("data-bsp-native-bar");
+    bar.style.removeProperty("--bsp-native-bar-offset");
+  }
+  for (const bar of new Set([tabs, filters])) {
+    if (!bar) continue;
+    bar.setAttribute("data-bsp-native-bar", "");
+    bar.style.removeProperty("--bsp-native-bar-offset");
+    const { left, width } = rectOf(bar);
+    bar.style.setProperty("--bsp-native-bar-offset", `${(viewportWidth - width) / 2 - left}px`);
+  }
+  return rectOf(tabs ?? filters);
 }
 
 function visibleAside(document) {

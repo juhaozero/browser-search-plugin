@@ -1,3 +1,5 @@
+import { duckDuckGoResultsList } from "./duckduckgo.mjs";
+
 /**
  * 布局门控：在自定义列模式就绪前隐藏原生结果区，避免「先原生再跳布局」闪现。
  */
@@ -115,6 +117,8 @@ export function findResultsShell(document) {
     ?? document.getElementById("search")
     ?? document.getElementById("center_col")
     ?? document.getElementById("b_content")
+    ?? document.getElementById("content_left")
+    ?? duckDuckGoResultsList(document)
   );
 }
 

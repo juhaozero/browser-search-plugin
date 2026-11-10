@@ -11,7 +11,7 @@ function stackBingFactRows(box) {
   for (const card of box.querySelectorAll(":scope > li.b_algo")) {
     const nodes = card.querySelectorAll("div, section, ul, ol");
     for (const el of nodes) {
-      if (!isElement(el) || !isSideBySideRow(el)) continue;
+      if (!isElement(el) || el.closest(".bsp-site-badge") || !isSideBySideRow(el)) continue;
       if (el.closest(".b_attribution, .b_tpcn, .b_acf_card, .b_rcGbModImageCard")) continue;
       pinFactBlock(el);
       for (const child of el.children) {

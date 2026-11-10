@@ -1,10 +1,3 @@
-
-export const DOMAIN_GROUPS = {
-  domainVisual: ["pinterest.com", "pinterest.co.uk", "pinterest.jp"],
-  domainCommunity: ["zhihu.com", "quora.com", "reddit.com"],
-  domainSocial: ["facebook.com", "instagram.com", "x.com", "twitter.com"],
-};
-
 export function parseDomains(value) {
   const domains = new Set();
   for (const token of value.trim().split(/[\s,，、;；]+/).filter(Boolean)) {

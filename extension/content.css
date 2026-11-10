@@ -26,6 +26,10 @@ html[data-bsp-active] body {
   max-width: 100vw;
 }
 
+html[data-bsp-engine="bing"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) body {
+  min-width: 0 !important;
+}
+
 html[data-bsp-active] #main,
 html[data-bsp-active] #cnt,
 html[data-bsp-active] #center_col,
@@ -155,6 +159,29 @@ html[data-bsp-active] #b_header[data-bsp-centered] #id_h {
 html[data-bsp-active] #b_header[data-bsp-centered] #sb_form {
   max-width: calc(100% - 248px) !important;
   min-width: 0 !important;
+}
+
+html[data-bsp-active] #b_header[data-bsp-centered] .b_searchboxForm {
+  display: inline-flex !important;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+html[data-bsp-active] #b_header[data-bsp-centered] .b_searchboxForm > .b_searchbox {
+  flex: 1 1 0;
+  width: auto !important;
+  min-width: 0 !important;
+  margin-inline: 0 !important;
+}
+
+html[data-bsp-active] #b_header[data-bsp-centered] .b_searchboxForm > #sw_as {
+  flex: 0 0 100%;
+}
+
+@media (max-width: 600px) {
+  html[data-bsp-active] #b_header[data-bsp-centered] .b_searchboxForm {
+    margin-top: 12px !important;
+  }
 }
 
 /* 谷歌/必应导航：清原生左缩进；壳内居中；禁止横向滚动条 */
@@ -323,7 +350,9 @@ html[data-bsp-active] [data-bsp-results-path] {
 #bsp-results[data-mode="double"] > *:has(h3),
 #bsp-results[data-mode="single"] > li.b_algo,
 #bsp-results[data-mode="single-center"] > li.b_algo,
-#bsp-results[data-mode="double"] > li.b_algo {
+#bsp-results[data-mode="double"] > li.b_algo,
+html[data-bsp-engine="duckduckgo"][data-bsp-column-mode] .react-results--main > li[data-layout="organic"][data-bsp-result],
+html[data-bsp-engine="baidu"][data-bsp-column-mode] #content_left > [data-bsp-result] {
   list-style: none !important;
   box-sizing: border-box !important;
   width: 100% !important;
@@ -338,6 +367,212 @@ html[data-bsp-active] [data-bsp-results-path] {
   overflow: hidden;
   flex-shrink: 0;
   overflow-wrap: anywhere;
+}
+
+/* Keep React's result items in place so DuckDuckGo can append and update them. */
+html[data-bsp-engine="duckduckgo"][data-bsp-column-mode] .react-results--main,
+html[data-bsp-engine="baidu"][data-bsp-column-mode] #content_left {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--bsp-card-gap) var(--bsp-card-column-gap);
+  max-width: var(--bsp-single-max);
+  padding-inline: 0;
+}
+
+html[data-bsp-engine="duckduckgo"][data-bsp-column-mode] .react-results--main {
+  width: 100%;
+}
+
+html:is([data-bsp-engine="duckduckgo"], [data-bsp-engine="baidu"]):is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) {
+  --bsp-native-layout-width: min(var(--bsp-native-max, var(--bsp-single-max)), calc(100vw - clamp(24px, 6vw, var(--bsp-side-gap))));
+  min-width: 0 !important;
+}
+
+html[data-bsp-engine="duckduckgo"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) :is(body, .site-wrapper) {
+  min-width: 0 !important;
+}
+
+html:is([data-bsp-engine="duckduckgo"], [data-bsp-engine="baidu"])[data-bsp-column-mode="double"] {
+  --bsp-native-max: var(--bsp-double-max);
+}
+
+html[data-bsp-engine="duckduckgo"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) #web_content_wrapper {
+  box-sizing: border-box;
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+  padding-inline: clamp(12px, 3vw, 32px) !important;
+  overflow: visible !important;
+}
+
+html[data-bsp-engine="duckduckgo"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+  :is(#links_wrapper, #links, #react-layout > div > div, #react-layout [data-testid="mainline"]):has(.react-results--main) {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+  float: none !important;
+}
+
+html[data-bsp-engine="duckduckgo"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+  #web_content_wrapper :has(.react-results--main) {
+  overflow: visible !important;
+}
+
+html[data-bsp-engine="duckduckgo"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+  :is(.header__search, .header__search-wrap):has(#search_form, #search_form_input, #searchbox_input) {
+  overflow: visible !important;
+}
+
+html[data-bsp-engine="duckduckgo"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) .react-results--main,
+html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) #content_left {
+  position: relative !important;
+  left: var(--bsp-native-offset, 0px) !important;
+  right: auto !important;
+  box-sizing: border-box;
+  width: var(--bsp-native-layout-width) !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+  flex-shrink: 0;
+}
+
+html:is([data-bsp-engine="duckduckgo"], [data-bsp-engine="baidu"]) [data-bsp-native-bar] {
+  --bsp-native-bar-offset: 0px;
+  position: relative !important;
+  left: var(--bsp-native-bar-offset) !important;
+  right: auto !important;
+  box-sizing: border-box;
+  width: var(--bsp-native-layout-width) !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+  flex-shrink: 0;
+}
+
+html[data-bsp-engine="duckduckgo"] :is(#react-duckbar, #react-filters, .metabar):has([data-bsp-native-bar]),
+html[data-bsp-engine="baidu"] :is(#s_tab, [tpl="app/head-tab"]):has([data-bsp-native-bar]) {
+  overflow: visible !important;
+}
+
+html[data-bsp-engine="duckduckgo"] #react-duckbar nav[data-bsp-native-bar]:has(> ul + ul) {
+  display: grid !important;
+  grid-template-columns: 1fr minmax(0, max-content) 1fr;
+}
+
+html[data-bsp-engine="duckduckgo"] #react-duckbar nav[data-bsp-native-bar] > ul:first-of-type {
+  grid-column: 2;
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+}
+
+html[data-bsp-engine="duckduckgo"] #react-duckbar nav[data-bsp-native-bar] > ul:nth-of-type(2) {
+  grid-column: 3;
+  justify-self: end;
+}
+
+@media (min-width: 768px) {
+  html[data-bsp-engine="duckduckgo"][data-bsp-column-mode="double"] .react-results--main,
+  html[data-bsp-engine="baidu"][data-bsp-column-mode="double"] #content_left {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+html[data-bsp-engine="duckduckgo"][data-bsp-column-mode] .react-results--main > :not(li[data-layout="organic"]),
+html[data-bsp-engine="duckduckgo"][data-bsp-column-mode] .react-results--main::before,
+html[data-bsp-engine="duckduckgo"][data-bsp-column-mode] .react-results--main::after,
+html[data-bsp-engine="baidu"][data-bsp-column-mode] #content_left > :not([data-bsp-result]) {
+  grid-column: 1 / -1;
+}
+
+html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+  :is(body, #wrapper, #wrapper_wrapper, #head, .head_wrapper, #container, #s_tab) {
+  min-width: 0 !important;
+}
+
+html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) #container:has(#content_left) {
+  display: flex !important;
+  flex-direction: column;
+  width: 100% !important;
+  max-width: none !important;
+  margin-inline: 0 !important;
+  padding-inline: 0 !important;
+  overflow: visible !important;
+}
+
+html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) #content_right {
+  order: 1;
+  position: static !important;
+  float: none !important;
+  max-width: 100%;
+  margin-inline: auto !important;
+}
+
+html[data-bsp-engine="baidu"] :is(#s_tab, #s_tab_inner, .s_tab_inner)[data-bsp-native-bar] {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px clamp(10px, 1.4vw, 22px);
+  justify-content: center !important;
+  overflow: visible !important;
+}
+
+html[data-bsp-engine="baidu"] #s_tab_inner[data-bsp-native-bar] {
+  container-type: inline-size;
+  height: auto !important;
+}
+
+html[data-bsp-engine="baidu"] #s_tab:has(#s_tab_inner[data-bsp-native-bar]) {
+  height: auto !important;
+}
+
+html[data-bsp-engine="baidu"] #s_tab_inner[data-bsp-native-bar] > .s-tab-filter {
+  flex-basis: 100%;
+  justify-content: flex-end;
+  text-align: end;
+}
+
+@container (min-width: 640px) {
+  html[data-bsp-engine="baidu"] #s_tab_inner[data-bsp-native-bar] > .s-tab-filter {
+    position: absolute !important;
+    inset-inline-end: 0;
+    top: 0;
+  }
+}
+
+html[data-bsp-engine="baidu"][data-bsp-column-mode]
+  :is([tpl="app/rs"], #rs, #rs_new, .rs_new, [tpl="recommend_list"], [tpl="recommend_list_san"]) {
+  display: none !important;
+}
+
+@media (max-width: 700px) {
+  html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+    #head:has(#chat-input-main) {
+    min-height: 118px !important;
+  }
+
+  html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+    #head #chat-input-main {
+    top: 50px !important;
+  }
+
+  html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+    #wrapper:has(#head #chat-input-main) [tpl="app/head-tab"] {
+    padding-top: 50px;
+  }
+}
+
+html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+  #form:not(.virtual-form) .s_ipt_wr {
+  width: calc(100% - 112px) !important;
+  min-width: 0 !important;
+}
+
+html[data-bsp-engine="baidu"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+  #form:not(.virtual-form) #kw {
+  box-sizing: border-box;
+  width: 100% !important;
+  min-width: 0 !important;
 }
 
 @media (max-width: 767px) {
@@ -546,6 +781,24 @@ html[data-bsp-active] [data-bsp-results-path] {
   clear: both !important;
 }
 
+html[data-bsp-engine="google"][data-bsp-auto-page]
+  :is(#navcnt, #botstuff #nav, #botstuff table.gUbm5e, #nav:has(#pnnext, #pnprev), table:has(#pnnext, #pnprev), #pnnext, #pnprev),
+html[data-bsp-engine="bing"][data-bsp-auto-page] #b_results > .b_pag,
+html[data-bsp-engine="baidu"][data-bsp-auto-page] :is([tpl="app/page"], #page),
+/* shortcut: DuckDuckGo's divider has no stable test ID. Update this class when its markup changes. */
+html[data-bsp-engine="duckduckgo"][data-bsp-auto-page]
+  .react-results--main > li:has(> .k0dqcyn_SZAmh1pFFuQ5) {
+  display: none !important;
+}
+
+/* Keep DuckDuckGo's native button callable by the auto-pager. */
+html[data-bsp-engine="duckduckgo"][data-bsp-auto-page]
+  :is(button#more-results, .rdxznaZygY2CryNa5yzk:has(> button#more-results)) {
+  position: absolute !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 #bsp-status {
   margin: 16px 0;
   text-align: center;
@@ -612,7 +865,7 @@ html[data-bsp-active="1"] #bsp-results[data-mode] > [data-bsp-domain-hidden="tru
   gap: 8px !important;
   min-width: 0;
   margin: 0 0 10px !important;
-  color: #303844;
+  color: var(--bsp-site-ink, #303844);
   font: 600 13px/24px system-ui, sans-serif;
 }
 .bsp-site-icon {
@@ -621,12 +874,19 @@ html[data-bsp-active="1"] #bsp-results[data-mode] > [data-bsp-domain-hidden="tru
   width: 24px;
   height: 24px;
   text-align: center;
-  background: #edf1f5;
+  background: var(--bsp-site-icon-bg, #edf1f5);
   border-radius: 6px;
   overflow: hidden;
 }
-.bsp-site-icon img { position: absolute; inset: 2px; width: 20px; height: 20px; object-fit: contain; background: #edf1f5; }
+.bsp-site-icon img { position: absolute; inset: 2px; width: 20px; height: 20px; object-fit: contain; background: var(--bsp-site-icon-bg, #edf1f5); }
 .bsp-site-domain { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html[data-bsp-engine="bing"] :is(.b_dark, .b_drk) .bsp-site-badge,
+html[data-bsp-engine="bing"]:is(.b_dark, .b_drk) .bsp-site-badge,
+html[data-bsp-engine="baidu"] .darkmode .bsp-site-badge,
+html[data-bsp-engine="baidu"].darkmode .bsp-site-badge {
+  --bsp-site-ink: #d9dfe7;
+  --bsp-site-icon-bg: #303844;
+}
 .bsp-open-error { display: block; color: #a32617; font: 13px/1.5 system-ui, sans-serif; }
 #bsp-related {
   position: fixed !important;
@@ -662,8 +922,7 @@ html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"],
 html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"] h3,
 html[data-bsp-dim-visited="true"] [data-bsp-result] a[data-bsp-opened="true"] h2 { color: #737387 !important; }
 @media (prefers-color-scheme: dark) {
-  .bsp-site-badge { color: #d9dfe7; }
-  .bsp-site-icon, .bsp-site-icon img { background: #303844; }
+  .bsp-site-badge { --bsp-site-ink: #d9dfe7; --bsp-site-icon-bg: #303844; }
   .bsp-open-error { color: #ffb4ab; }
   #bsp-related { background: #20242b; color: #d9dfe7; border-color: #49515d; }
   #bsp-related a { background: #303b4e; color: #bfd3f6; }

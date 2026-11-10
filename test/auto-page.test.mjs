@@ -150,6 +150,8 @@ test("下一页网络错误和验证页面作为失败处理，并保留请求�
     await assert.rejects(fetchHtmlDocument(url), /429/);
     globalThis.fetch = async () => ({ ok: true, text: async () => '<html><body>Verify you are human</body></html>' });
     await assert.rejects(fetchHtmlDocument(url), /未返回搜索结果/);
+    globalThis.fetch = async () => ({ ok: true, text: async () => '<ol id="b_results"><li class="b_pag"><a class="sb_pagS">1</a></li></ol>' });
+    await assert.rejects(fetchHtmlDocument("https://cn.bing.com/search?q=test&first=9"), /返回了第一页/);
     const controller = new AbortController();
     controller.abort();
     globalThis.fetch = async (_url, options) => {
@@ -162,4 +164,21 @@ test("下一页网络错误和验证页面作为失败处理，并保留请求�
     if (originalParser === undefined) delete globalThis.DOMParser;
     else globalThis.DOMParser = originalParser;
   }
+});
+
+test("翻页关闭后重新开启也不会接入取消的响应", async () => {
+  let finish, signal;
+  const { session, pager } = setup((_url, requestSignal) => {
+    signal = requestSignal;
+    return new Promise(resolve => { finish = resolve; });
+  });
+  const loading = pager.check(near);
+  pager.setEnabled(false);
+  pager.setEnabled(true);
+  assert.equal(signal.aborted, true);
+  finish(page(1));
+  assert.equal((await loading).fetched, false);
+  assert.equal(session.appendedPages, 0);
+  pager.dispose();
+  session.dispose();
 });

@@ -1,6 +1,8 @@
 import { nextPageUrl } from "./search-session.mjs";
 import { DEFAULT_LOCALE, normalizeLocale, t } from "./i18n.mjs";
 import { DEFAULT_PREFS, normalizePrefs } from "./preferences.mjs";
+import { duckDuckGoResultsList } from "./duckduckgo.mjs";
+import { BING_HOSTS } from "./search-hosts.mjs";
 
 const NEAR_BOTTOM_PX = DEFAULT_PREFS.nearBottomPx;
 
@@ -8,7 +10,9 @@ const NEAR_BOTTOM_PX = DEFAULT_PREFS.nearBottomPx;
  * @param {{
  *   document: Document,
  *   session: {
- *     ingest: (doc: Document) => { added: number, stopped: boolean },
+ *     ingest?: (doc: Document) => { added: number, stopped: boolean },
+ *     nextControl?: () => HTMLButtonElement | null,
+ *     loadNext?: (button: HTMLButtonElement, signal?: AbortSignal) => Promise<{ added: number, stopped: boolean }>,
  *     appendedPages: number,
  *     autoPage: boolean,
  *   },
@@ -24,6 +28,7 @@ const NEAR_BOTTOM_PX = DEFAULT_PREFS.nearBottomPx;
  */
 export function createAutoPager(options) {
   const document = options.document;
+  const root = document.documentElement;
   const session = options.session;
   let config = normalizePrefs(options.prefs);
   let nearBottomPx = options.nearBottomPx ?? config.nearBottomPx;
@@ -45,6 +50,8 @@ export function createAutoPager(options) {
   /** @type {AbortController | null} */
   let inflight = null;
 
+  root.toggleAttribute("data-bsp-auto-page", enabled && session.autoPage);
+
   const api = {
     get enabled() {
       return enabled;
@@ -56,7 +63,14 @@ export function createAutoPager(options) {
     },
     setEnabled(value) {
       enabled = Boolean(value);
-      if (!enabled) clearTip();
+      root.toggleAttribute("data-bsp-auto-page", enabled && session.autoPage);
+      if (!enabled) {
+        if (!session.loadNext && inflight) {
+          inflight.abort();
+          if (status === "loading") status = "loaded";
+        }
+        clearTip();
+      }
       else if (session.appendedPages || status !== "loaded") renderStatus();
     },
     setPrefs(next) {
@@ -89,6 +103,7 @@ export function createAutoPager(options) {
     },
     dispose() {
       disposed = true;
+      root.removeAttribute("data-bsp-auto-page");
       try {
         inflight?.abort?.();
       } catch {
@@ -108,6 +123,7 @@ export function createAutoPager(options) {
 
   function continueLoading() {
     if (disposed || !enabled || !session.autoPage || busy || status !== "limit") return Promise.resolve({ fetched: false });
+    if (session.loadNext && !session.nextControl()) return Promise.resolve({ fetched: false });
     pageLimit = session.appendedPages + config.pagesPerBatch;
     stopped = false;
     return retry();
@@ -120,8 +136,10 @@ export function createAutoPager(options) {
       showTip("limit");
       return { fetched: false, stopped: true };
     }
-    const next = nextPageUrl(currentUrl, currentDocument);
-    if (!next) {
+    const nativeControl = session.nextControl?.();
+    if (session.loadNext && !nativeControl) return { fetched: false };
+    const next = session.loadNext ? null : nextPageUrl(currentUrl, currentDocument);
+    if (!nativeControl && !next) {
       stopped = true;
       showTip("end");
       return { fetched: false, stopped: true };
@@ -131,13 +149,14 @@ export function createAutoPager(options) {
     const ac = typeof AbortController === "function" ? new AbortController() : null;
     inflight = ac;
     try {
-      const nextDocument = await options.fetchDocument(next, ac?.signal);
-      if (disposed || !enabled || !session.autoPage) {
+      const nativeResult = nativeControl ? await session.loadNext(nativeControl, ac?.signal) : null;
+      const nextDocument = next ? await options.fetchDocument(next, ac?.signal) : null;
+      if (disposed || !enabled || !session.autoPage || ac?.signal.aborted) {
         clearTip();
         return { fetched: false };
       }
       const result = mutate(() => {
-        const result = session.ingest(nextDocument);
+        const result = nativeResult ?? session.ingest(nextDocument);
         if (result.added) options.onIngest?.();
         return result;
       });
@@ -145,7 +164,7 @@ export function createAutoPager(options) {
         clearTip();
         return { fetched: false };
       }
-      if (result.added > 0) {
+      if (result.added > 0 && nextDocument) {
         currentUrl = next;
         currentDocument = nextDocument;
       }
@@ -155,13 +174,14 @@ export function createAutoPager(options) {
       if (config.autoContinue && result.added > 0 && !stopped) queueMicrotask(() => { void api.check(); });
       return { ...result, fetched: result.added > 0, stopped };
     } catch (error) {
-      if (disposed || !enabled || !session.autoPage || isAbortError(error)) return { fetched: false, failed: false };
+      if (disposed || !enabled || !session.autoPage || ac?.signal.aborted || isAbortError(error)) return { fetched: false, failed: false };
       showTip("failed");
       needLeaveBottom = true;
       return { fetched: false, failed: true };
     } finally {
       if (inflight === ac) inflight = null;
       busy = false;
+      if (ac?.signal.aborted && enabled && !disposed) queueMicrotask(() => { void api.check(); });
     }
   }
 
@@ -223,7 +243,9 @@ export function createAutoPager(options) {
       tip.setAttribute("aria-live", "polite");
       tip.setAttribute("aria-atomic", "true");
       tip.hidden = true;
-      const page = document.getElementById("page")
+      const page = document.querySelector('[tpl="app/page"]')
+        ?? document.getElementById("navcnt")
+        ?? document.getElementById("page")
         ?? document.getElementById("botstuff")
         ?? document.getElementById("nav")
         ?? document.getElementById("pnnext")?.closest("table")
@@ -235,6 +257,7 @@ export function createAutoPager(options) {
         anchor.parentNode.after(tip);
       }
       else if (anchor?.parentNode) anchor.parentNode.insertBefore(tip, anchor);
+      else if (document.getElementById("web_content_wrapper")) document.getElementById("web_content_wrapper").after(tip);
       else document.body.appendChild(tip);
     }
     return tip;
@@ -261,7 +284,9 @@ export function isNearBottom(document, metrics, nearBottomPx = NEAR_BOTTOM_PX) {
   const list = document.getElementById("bsp-results")
     ?? document.getElementById("rso")
     ?? document.getElementById("search")
-    ?? document.getElementById("b_results");
+    ?? document.getElementById("b_results")
+    ?? document.getElementById("content_left")
+    ?? duckDuckGoResultsList(document);
   if (!list || typeof list.getBoundingClientRect !== "function") return false;
   const viewport = document.defaultView?.innerHeight ?? metrics?.viewportHeight;
   if (!viewport) return false;
@@ -280,6 +305,11 @@ export async function fetchHtmlDocument(url, signal) {
   if (!response.ok) throw new Error(`取下一页失败: ${response.status}`);
   const html = await response.text();
   const document = new DOMParser().parseFromString(html, "text/html");
-  if (!document.querySelector("#rso, #search, #b_results")) throw new Error("下一页未返回搜索结果，请稍后重试");
+  if (!document.querySelector("#rso, #search, #b_results, #content_left")) throw new Error("下一页未返回搜索结果，请稍后重试");
+  const requested = new URL(url);
+  if (BING_HOSTS.includes(requested.hostname) && Number(requested.searchParams.get("first")) > 1
+    && document.querySelector("#b_results .sb_pagS")?.textContent.trim() === "1") {
+    throw new Error("必应返回了第一页，请重试");
+  }
   return document;
 }

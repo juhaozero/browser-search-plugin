@@ -1,3 +1,5 @@
+import { BAIDU_HOSTS, DUCKDUCKGO_HOST } from "./search-hosts.mjs";
+
 /**
  * Content-script boot 生命周期：用世代号避免 SPA 快速导航时并发 boot 泄漏 observer。
  */
@@ -26,6 +28,16 @@ export function searchPageKey(url) {
   try {
     const parsed = new URL(url);
     const q = parsed.searchParams.get("q");
+    if (BAIDU_HOSTS.includes(parsed.hostname) && parsed.pathname === "/s") {
+      return JSON.stringify(["baidu", parsed.hostname,
+        parsed.searchParams.get("wd") ?? parsed.searchParams.get("word"),
+        ...["pn", "rn", "tn", "gpc"].map(key => parsed.searchParams.get(key) || "")]);
+    }
+    if (parsed.hostname === DUCKDUCKGO_HOST && parsed.pathname === "/" && q != null) {
+      return JSON.stringify(["duckduckgo", q,
+        parsed.searchParams.get("ia") || "web",
+        ...["iax", "df", "kl", "kp"].map(key => parsed.searchParams.get(key) || "")]);
+    }
     if (/google\./.test(parsed.hostname) && parsed.pathname === "/search" && q != null) {
       return JSON.stringify(["google", parsed.hostname, q,
         parsed.searchParams.get("start") || "0",

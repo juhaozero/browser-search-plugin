@@ -19,18 +19,15 @@ export const DEFAULT_PREFS = {
   collapseSnippets: false,
 };
 
-// Presets change paging and reading appearance; layout and navigation stay independent.
+// Presets control the appearance and visibility of search results.
 export const PREF_PRESETS = {
-  simple: { autoPage: true, pagesPerBatch: 10, nearBottomPx: 800, autoContinue: false,
-    cardDensity: "comfortable", maxColumnWidth: 0,
+  simple: { cardDensity: "comfortable", maxColumnWidth: 0,
     googleSidebar: false, bingSidebar: false, showAI: true, adsMode: "dim",
     collapsePaa: false, collapseVideos: false, collapseSnippets: false },
-  reading: { autoPage: true, pagesPerBatch: 5, nearBottomPx: 600, autoContinue: false,
-    cardDensity: "relaxed", maxColumnWidth: 720,
+  reading: { cardDensity: "relaxed", maxColumnWidth: 720,
     googleSidebar: false, bingSidebar: false, showAI: false, adsMode: "collapse",
     collapsePaa: true, collapseVideos: true, collapseSnippets: false },
-  minimal: { autoPage: false, pagesPerBatch: 1, nearBottomPx: 400, autoContinue: false,
-    cardDensity: "compact", maxColumnWidth: 680,
+  minimal: { cardDensity: "compact", maxColumnWidth: 680,
     googleSidebar: false, bingSidebar: false, showAI: false, adsMode: "collapse",
     collapsePaa: true, collapseVideos: true, collapseSnippets: true },
 };

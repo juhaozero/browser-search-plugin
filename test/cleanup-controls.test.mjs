@@ -29,7 +29,8 @@ test("高级中的域名规则通过当前页消息应用，重开弹窗读回�
     return document;
   };
   let document = await open();
-  document.querySelector('[data-domain-group="domainCommunity"]').click();
+  document.querySelector('[name="pageDomains"]').value = "zhihu.com";
+  document.querySelector('[data-domain-apply]').click();
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(domains.includes("zhihu.com"));
   assert.deepEqual(await store.load(), DEFAULT_PREFS);
@@ -45,9 +46,10 @@ test("高级中的域名规则通过当前页消息应用，重开弹窗读回�
   assert.deepEqual(domains, []);
 });
 
-test("预设只调整翻页与外观、保留独立布局和导航偏好，高级默认关闭", async () => {
+test("预设调整外观并保留独立的翻页、布局和导航偏好，高级默认关闭", async () => {
   const { document } = parseHTML(readFileSync(new URL("../extension/popup.html", import.meta.url), "utf8"));
-  const initial = { ...DEFAULT_PREFS, columnMode: "double", resultOpenMode: "background", pagesPerBatch: 3, autoPage: false };
+  const paging = { autoPage: false, pagesPerBatch: 3, nearBottomPx: 250, autoContinue: true };
+  const initial = { ...DEFAULT_PREFS, ...paging, columnMode: "double", resultOpenMode: "background" };
   const store = createMemoryPrefsStore(initial);
   const popup = await mountPopup(document, { prefsStore: store, localeStore: createLocaleStore() });
   assert.equal(document.querySelector(".bsp-all-advanced").hasAttribute("open"), false);
@@ -64,7 +66,9 @@ test("预设只调整翻页与外观、保留独立布局和导航偏好，高�
   for (const name of Object.keys(PREF_PRESETS)) {
     document.querySelector(`[data-preset="${name}"]`).click();
     await new Promise(resolve => setImmediate(resolve));
-    assert.deepEqual(await store.load(), applyPreset(initial, name));
+    const current = await store.load();
+    assert.deepEqual(current, applyPreset(initial, name));
+    for (const [key, value] of Object.entries(paging)) assert.equal(current[key], value, `${name}: ${key}`);
     assert.equal(document.querySelector(`[data-preset="${name}"]`).getAttribute("aria-pressed"), "true");
     assert.equal(customPreset.hasAttribute("hidden"), true);
     for (const columnMode of ["original", "single", "single-center", "double"]) {
@@ -73,11 +77,12 @@ test("预设只调整翻页与外观、保留独立布局和导航偏好，高�
       assert.equal(saved.resultOpenMode, "background");
     }
   }
-  assert.equal(applyPreset(initial, "simple").pagesPerBatch, 10);
-  assert.equal(applyPreset(initial, "reading").pagesPerBatch, 5);
-  assert.equal(applyPreset(initial, "minimal").autoPage, false);
+  document.querySelector('[name="autoPage"]').checked = true;
+  document.querySelector('[name="pagesPerBatch"]').value = "7";
   for (const input of document.querySelectorAll('[name="columnMode"]')) input.checked = input.value === "single";
   await popup.commit();
+  assert.equal((await store.load()).autoPage, true);
+  assert.equal((await store.load()).pagesPerBatch, 7);
   assert.equal(document.querySelector('[data-preset="minimal"]').getAttribute("aria-pressed"), "true");
   await popup.setLocale("zh");
   assert.equal(document.querySelector('[data-preset="minimal"]').textContent, "极简干扰");

@@ -4,7 +4,7 @@ const searchFieldStyles = new WeakMap();
 
 const SEARCH_FIELD_PROPS = ["width", "max-width", "min-width", "margin-left", "margin-right", "box-sizing", "flex-shrink"];
 
-function restoreGoogleSearchField(document) {
+function restoreSearchField(document) {
   const saved = searchFieldStyles.get(document);
   if (!saved) return;
   for (const [prop, value, priority] of saved.styles) {
@@ -17,35 +17,57 @@ function restoreGoogleSearchField(document) {
 
 // Move only the visible search field, never the full header/account containing block.
 // Measure the result column and reserve symmetric space for native controls.
-function alignGoogleSearchField(document, metrics) {
-  if (document.getElementById("b_results")) return;
+function alignEngineSearchField(document, metrics) {
+  if (document.getElementById("b_results")) {
+    const field = document.querySelector("#sb_form .b_searchboxForm");
+    if (field) alignSearchField(document, field, metrics.viewportWidth / 2, metrics.shellWidth, metrics.viewportWidth, "#b_header .b_logoArea, #id_h");
+    return;
+  }
   const form = document.querySelector("form#tsf, form[role='search']");
   const input = form?.querySelector("[name='q']");
   if (!input) return;
   const field = input.closest(".A8SBwf") ?? form;
+  const results = rectOf(document.getElementById("bsp-results"));
+  const center = results.width > 0 ? results.left + results.width / 2 : metrics.targetLeft + metrics.mainWidth / 2;
+  alignSearchField(document, field, center, results.width || metrics.mainWidth, metrics.viewportWidth, "#gb, #logo, #hplogo, #google-logo");
+}
+
+function alignDuckDuckGoSearchField(document, results, viewportWidth) {
+  const input = document.querySelector('#search_form_input, #searchbox_input, #search_form [name="q"], header form [name="q"]');
+  const field = input?.closest("form, #search_form");
+  if (!field) { restoreSearchField(document); return; }
+  alignSearchField(document, field, results.left + results.width / 2, results.width, viewportWidth,
+    ".header__logo-wrap, .header__logo, #logo_homepage_link, .header--aside, [data-testid='header-logo']");
+}
+
+function alignBaiduSearchField(document, results, viewportWidth) {
+  const field = [...document.querySelectorAll("#head #chat-input-main, #head #form:not(.virtual-form):has(#kw)")]
+    .find(element => element.checkVisibility?.({ visibilityProperty: true }) ?? isDisplayed(element));
+  if (!field) { restoreSearchField(document); return; }
+  alignSearchField(document, field, results.left + results.width / 2, results.width, viewportWidth, "#result_logo, #head #u");
+}
+
+function alignSearchField(document, field, center, maxWidth, viewportWidth, controls) {
   const initial = rectOf(field);
   if (!(initial.width > 0 && initial.height > 0)) return;
   const previous = searchFieldStyles.get(document);
   if (previous?.field !== field) {
-    restoreGoogleSearchField(document);
+    restoreSearchField(document);
     searchFieldStyles.set(document, { field, hadStyle:field.hasAttribute("style"),
       styles:SEARCH_FIELD_PROPS.map(prop => [prop, field.style.getPropertyValue(prop), field.style.getPropertyPriority(prop)]) });
   }
-  const box = document.getElementById("bsp-results");
-  const results = rectOf(box);
-  const center = results.width > 0 ? results.left + results.width / 2 : metrics.targetLeft + metrics.mainWidth / 2;
   let left = 16;
-  let right = metrics.viewportWidth - 16;
-  for (const control of document.querySelectorAll("#gb, #logo, #hplogo, #google-logo")) {
+  let right = viewportWidth - 16;
+  for (const control of document.querySelectorAll(controls)) {
     if (field.contains(control) || !isDisplayed(control)) continue;
     const r = rectOf(control);
     if (r.width <= 0 || r.height <= 0 || r.bottom <= initial.top || r.top >= initial.bottom) continue;
     if (r.left >= center) right = Math.min(right, r.left - 24);
     else if (r.right <= center) left = Math.max(left, r.right + 24);
   }
-  const width = Math.min(results.width || metrics.mainWidth, 2 * Math.min(center - left, right - center));
+  const width = Math.min(maxWidth, 2 * Math.min(center - left, right - center));
   // Keep the native field when there is no usable slot at the result center.
-  if (width < 180) { restoreGoogleSearchField(document); return; }
+  if (width < 180) { restoreSearchField(document); return; }
   field.style.setProperty("width", `${width}px`, "important");
   field.style.setProperty("max-width", "none", "important");
   field.style.setProperty("min-width", "0", "important");
@@ -65,4 +87,4 @@ function alignGoogleSearchField(document, metrics) {
   }
 }
 
-export { alignGoogleSearchField, restoreGoogleSearchField };
+export { alignBaiduSearchField, alignDuckDuckGoSearchField, alignEngineSearchField, restoreSearchField };

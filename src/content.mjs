@@ -1,4 +1,5 @@
 import { bootSearchPage, isDesktopWebSearch } from "./content-entry.mjs";
+import { BAIDU_HOSTS, DUCKDUCKGO_HOST } from "./search-hosts.mjs";
 import {
   createContentLifecycle,
   isExtensionContextValid,
@@ -66,6 +67,14 @@ function onNavigate() {
   void start("navigate");
 }
 
+let currentPageKey;
+function onSearchEntryChange() {
+  const key = searchPageKey(location.href);
+  if (key === currentPageKey) return;
+  currentPageKey = key;
+  onNavigate();
+}
+
 /** @type {number | undefined} */
 let contextGuardTimer;
 
@@ -96,6 +105,7 @@ function disposeController() {
   }
   try {
     view?.removeEventListener?.("popstate", onPopState);
+    view?.navigation?.removeEventListener("currententrychange", onSearchEntryChange);
   } catch {
     // ignore
   }
@@ -130,27 +140,33 @@ if (typeof location !== "undefined" && typeof document !== "undefined" && locati
   void start("boot");
   const view = document.defaultView;
   if (view) {
-    view.addEventListener("popstate", onPopState);
     installContextGuard(view);
-    const wrap = (method) => {
-      let original = view.history[method];
-      if (typeof original !== "function") return;
-      if (original.__bspOriginal) original = original.__bspOriginal;
-      function patched(...args) {
-        const beforeKey = searchPageKey(location.href);
-        const result = original.apply(this, args);
-        queueMicrotask(() => {
-          // 查询、分页或搜索类型变化时 reboot；追踪参数变化忽略
-          if (searchPageKey(location.href) === beforeKey) return;
-          globalThis[GLOBAL_KEY]?.onNavigate?.();
-        });
-        return result;
-      }
-      patched.__bspPatched = true;
-      patched.__bspOriginal = original;
-      view.history[method] = patched;
-    };
-    wrap("pushState");
-    wrap("replaceState");
+    if (view.navigation && (location.hostname === DUCKDUCKGO_HOST || BAIDU_HOSTS.includes(location.hostname))) {
+      // Native navigation events also see React's history updates from the page's JS world.
+      currentPageKey = searchPageKey(location.href);
+      view.navigation.addEventListener("currententrychange", onSearchEntryChange);
+    } else {
+      view.addEventListener("popstate", onPopState);
+      const wrap = (method) => {
+        let original = view.history[method];
+        if (typeof original !== "function") return;
+        if (original.__bspOriginal) original = original.__bspOriginal;
+        function patched(...args) {
+          const beforeKey = searchPageKey(location.href);
+          const result = original.apply(this, args);
+          queueMicrotask(() => {
+            // 查询、分页或搜索类型变化时 reboot；追踪参数变化忽略
+            if (searchPageKey(location.href) === beforeKey) return;
+            globalThis[GLOBAL_KEY]?.onNavigate?.();
+          });
+          return result;
+        }
+        patched.__bspPatched = true;
+        patched.__bspOriginal = original;
+        view.history[method] = patched;
+      };
+      wrap("pushState");
+      wrap("replaceState");
+    }
   }
 }

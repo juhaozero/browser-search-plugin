@@ -73,8 +73,27 @@ test("只认桌面版网页搜索", () => {
   assert.equal(isDesktopWebSearch("https://www.bing.com/search?q=chrome"), true);
   assert.equal(isDesktopWebSearch("https://www.google.com/"), false);
   assert.equal(isDesktopWebSearch("https://www.google.com/search?q=chrome&tbm=isch"), false);
-  assert.equal(isDesktopWebSearch("https://www.baidu.com/s?wd=chrome"), false);
+  assert.equal(isDesktopWebSearch("https://www.baidu.com/s?wd=chrome"), true);
   assert.equal(isDesktopWebSearch("https://www.bing.com/images/search?q=chrome"), false);
+});
+
+test("百度翻页只接受同源、同查询且前进的原生分页链接", () => {
+  const url = "https://www.baidu.com/s?wd=deepseek&pn=10";
+  const { document } = parseHTML(`<div tpl="app/page">
+    <a class="n" href="https://baidu.com/s?wd=deepseek&pn=20">Other origin</a>
+    <a class="n" href="/s?wd=other&pn=20">Other query</a>
+    <a class="n" href="/s?wd=deepseek&pn=0">Previous</a>
+    <a class="n" href="/s?wd=deepseek&pn=25&rsv_page=2">Next</a>
+  </div>`);
+  assert.equal(nextPageUrl(url, document), "https://www.baidu.com/s?wd=deepseek&pn=25&rsv_page=2");
+  document.querySelector("a:last-child").remove();
+  assert.equal(nextPageUrl(url, document), null);
+});
+
+test("Google 和 Bing 只显示上一页时结束自动翻页", () => {
+  const { document } = parseHTML('<a id="pnprev" href="?q=test&start=0">Previous</a><a class="sb_pagP" href="?q=test&first=1">Previous</a>');
+  assert.equal(nextPageUrl("https://www.google.com/search?q=test&start=10", document), null);
+  assert.equal(nextPageUrl("https://www.bing.com/search?q=test&first=11", document), null);
 });
 
 test("下一页地址从当前页往后推一页", () => {

@@ -1,4 +1,4 @@
-import { DOMAIN_GROUPS, parseDomains } from "./domain-filter.mjs";
+import { parseDomains } from "./domain-filter.mjs";
 import { t } from "./i18n.mjs";
 
 export function createPageDomainsClient(tabs) {
@@ -48,15 +48,6 @@ export async function mountPopupDomains(document, client) {
     event.preventDefault();
     void apply();
   });
-  for (const button of section.querySelectorAll("[data-domain-group]")) {
-    const domains = DOMAIN_GROUPS[button.dataset.domainGroup];
-    button.title = domains.join(", ");
-    button.addEventListener("click", () => {
-      const current = parseDomains(input.value);
-      if (!current) { void apply(); return; }
-      void apply([...new Set([...current, ...domains])].join(", "));
-    });
-  }
   try {
     const result = await client({ action: "get" });
     if (!result?.ok) throw new Error("Filter unavailable");

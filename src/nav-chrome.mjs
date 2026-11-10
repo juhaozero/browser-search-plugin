@@ -1,6 +1,6 @@
 import { isElement, placeAtViewportCenter, placedSignature, rectOf, stampCentered } from "./layout-dom.mjs";
 import { BING_NAV_TAB_SELECTOR, LAYOUT_SHELL_IDS } from "./layout-constants.mjs";
-import { alignGoogleSearchField } from "./search-field.mjs";
+import { alignEngineSearchField } from "./search-field.mjs";
 import { isOwnDomElement } from "./layout-dom.mjs";
 
 /** 现代谷歌导航标签的稳定标记（jsname 在多次改版中保持不变） */
@@ -144,7 +144,7 @@ function refreshChromeLayout(document, metrics) {
   }
   placeNavBands(document, metrics.shellWidth, metrics.targetLeft, placed);
   sanitizeNavChrome(document);
-  alignGoogleSearchField(document, metrics);
+  alignEngineSearchField(document, metrics);
 }
 
 /**

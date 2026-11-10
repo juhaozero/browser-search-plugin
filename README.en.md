@@ -1,6 +1,6 @@
 # SearchLayout
 
-A Chrome extension that makes **Google and Bing desktop web search results** easier to read — rearrange organic results into a single or dual column, and optionally auto-append the next page on the same screen.
+A Chrome extension that makes **Google, Bing, and DuckDuckGo desktop web search results** easier to read with single- and dual-column layouts and optional automatic pagination.
 
 ![Dual-column layout on Google Search](./extension/store-assets/screenshot-04-dual-column-live.png)
 
@@ -8,11 +8,13 @@ A Chrome extension that makes **Google and Bing desktop web search results** eas
 
 ## Features
 
-- **Quick presets**: Simple / Focused reading / Minimal distractions adjust paging and reading appearance. Layout and result opening stay independent. Simple loads batches of 10 pages at 800px; Focused reading uses 5 pages at 600px; Minimal distractions disables auto-page. Layout stays on the main popup screen; other detailed controls live under Advanced.
-- **Page-only domain hiding**: Open Advanced → Hide domains on this page in the popup to enter domains such as `pinterest.com` or `zhihu.com`, including subdomains. Image, community and social-site groups can be combined, edited or cleared. Appended results are filtered too.
+- **Quick presets**: Simple / Focused reading / Minimal distractions adjust card density, column width, and content visibility. Set the layout separately on the main popup screen, and set automatic pagination, paging options, and result opening under Advanced.
+- **Page-only domain hiding**: Open Advanced → Hide domains on this page, enter domains such as `pinterest.com` or `zhihu.com`, then select Apply. Filtering includes subdomains and appended results. Select Restore all to clear the rules for the current page.
 - **Special result blocks**: Separate switches for People Also Ask, video carousels and featured snippets. Recognized blocks can be expanded in place and restored without replacing their nodes.
 - **Column modes**: Original / Single / Single-center / Double (results as cards)
-- **Auto-page**: When you scroll near the bottom, the next page of organic results is appended on the same page
+- **Auto-page**: Append the next page of organic results as you scroll near the bottom. Turn off auto-page to restore native pagination controls
+- **DuckDuckGo**: When the native More Results button is available, auto-page follows the extension’s batch settings. DuckDuckGo controls loading when its own Infinite Scroll setting is enabled
+- **Baidu**: All four desktop web search layouts and automatic pagination are available. Centered modes align the search box, navigation, and filters. Custom layouts hide recognized related-search modules
 - **Loading status**: See the number of appended pages, retry failed requests, continue after each 10-page pause, or return to the top
 - **Instant preferences**: Change settings from the toolbar popup; stored in `chrome.storage` and can sync with your Chrome account
 - **Reading appearance**: Compact / Comfortable / Relaxed, with an optional 320–1600px maximum per-column width (blank uses automatic width)
@@ -21,7 +23,7 @@ A Chrome extension that makes **Google and Bing desktop web search results** eas
 - **Pagination settings**: 1–50 pages per batch, 0–3000px bottom threshold, and optional automatic continuation while near the bottom
 - **Result opening**: Engine default, current tab, new tab, or background tab for organic result titles. New/background tabs preserve the results page; modifier and middle clicks keep browser behavior
 - **Pinned related searches**: Copy recognized related queries into a fixed bottom bar with horizontal scrolling on narrow screens; keep the original links
-- **Site identity**: Consistent domain badges reuse existing site icons, with a local initial fallback and no additional favicon service
+- **Site identity**: Domain badges use an existing result icon when available, then try the destination site's HTTPS `/favicon.ico`. If neither image loads, the badge shows the site's initial.
 - **Visited links**: Optional muted link colors using CSS `:visited`, plus a page-session “opened” mark after successful new/background tab creation. Destination URLs stay in page memory only and are cleared on reload or session teardown; no history permission, history access, or persistent click records. Opening a tab does not confirm the destination loaded successfully
 
 Defaults: single-center layout + auto-page on.
@@ -40,6 +42,8 @@ Desktop **web search result pages** only:
 | ------ | -------------------------------------------------------------------- |
 | Google | `google.com` / `www.google.com` and common regional `/search*` hosts |
 | Bing   | `www.bing.com` / `cn.bing.com` `/search*`                            |
+| DuckDuckGo | `duckduckgo.com` root path with a search query |
+| Baidu | `baidu.com` / `www.baidu.com` `/s` |
 
 Not supported: image / video / news / maps verticals, mobile pages, the search homepage, or destination sites after you click a result.
 
@@ -86,7 +90,7 @@ PRIVACY.md           # Privacy policy
 ## Permissions
 
 - `storage` — save layout and auto-page preferences
-- Content scripts inject only on Google / Bing search result pages to rearrange results and optionally fetch the next page in-browser
+- Content scripts run on matching Google, Bing, DuckDuckGo, and Baidu web searches
 
 The extension does **not** upload your queries or page content to a developer server. See [PRIVACY.md](./PRIVACY.md).
 

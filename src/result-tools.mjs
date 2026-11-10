@@ -1,7 +1,7 @@
 import { bingTargetUrl, titleLink } from "./search-session.mjs";
 import { safeWebUrl } from "./result-tabs.mjs";
 import { t } from "./i18n.mjs";
-import { BING_HOSTS } from "./search-hosts.mjs";
+import { BAIDU_HOSTS, BING_HOSTS, DUCKDUCKGO_HOST } from "./search-hosts.mjs";
 import { createDomainFilter } from "./domain-filter.mjs";
 
 export { titleLink };
@@ -13,6 +13,9 @@ export function destinationUrl(href, base, engine) {
   if (engine === "bing" && BING_HOSTS.includes(parsed.hostname)) url = bingTargetUrl(url);
   if (engine === "google" && parsed.origin === new URL(base).origin && parsed.pathname === "/url") {
     url = parsed.searchParams.get("q") ?? parsed.searchParams.get("url") ?? url;
+  }
+  if (engine === "duckduckgo" && parsed.hostname === DUCKDUCKGO_HOST && parsed.pathname === "/l/") {
+    url = parsed.searchParams.get("uddg") ?? url;
   }
   return safeWebUrl(url, base);
 }
@@ -51,10 +54,7 @@ export function createResultTools(document, url, session, sendMessage = message 
   const openedLinks = new Map();
   const root = document.documentElement;
   const oldVisited = root.getAttribute("data-bsp-dim-visited");
-  const domainFilter = createDomainFilter(document, session, item => {
-    const link = titleLink(item);
-    return link && destinationUrl(link.getAttribute("href"), url, session.engine);
-  });
+  const domainFilter = createDomainFilter(document, session, resultDestination);
   const runtime = typeof chrome !== "undefined" ? chrome.runtime : null;
   function onDomainsMessage(message, sender, respond) {
     if (disposed || message?.type !== "bsp-page-domains" || sender.id !== runtime?.id) return;
@@ -63,7 +63,19 @@ export function createResultTools(document, url, session, sendMessage = message 
   }
   runtime?.onMessage?.addListener(onDomainsMessage);
   document.addEventListener("click", onClick, true);
+  if (session.engine === "bing") document.addEventListener("auxclick", onClick, true);
   return { refresh, dispose, domainFilter };
+
+  function resultDestination(item) {
+    const link = titleLink(item);
+    if (!link) return null;
+    const destination = destinationUrl(link.getAttribute("href"), url, session.engine);
+    if (session.engine !== "baidu") return destination;
+    const target = safeWebUrl(item.getAttribute("mu"));
+    if (target || !destination) return target;
+    const { hostname, pathname } = new URL(destination);
+    return BAIDU_HOSTS.includes(hostname) && pathname === "/link" ? null : destination;
+  }
 
   function refresh(next = prefs, nextLocale = locale) {
     if (disposed) return;
@@ -82,8 +94,7 @@ export function createResultTools(document, url, session, sendMessage = message 
       if (!marked.has(item)) marked.set(item, item.getAttribute("data-bsp-result"));
       item.setAttribute("data-bsp-result", "");
       if (!prefs.emphasizeSite) continue;
-      const link = titleLink(item);
-      const destination = link && destinationUrl(link.getAttribute("href"), url, session.engine);
+      const destination = resultDestination(item);
       const host = destination ? new URL(destination).hostname : "";
       const existing = badges.get(item);
       if (existing?.dataset.host === host && existing.parentNode === item) continue;
@@ -97,17 +108,22 @@ export function createResultTools(document, url, session, sendMessage = message 
       icon.className = "bsp-site-icon";
       icon.setAttribute("aria-hidden", "true");
       icon.textContent = host.replace(/^www\./, "").slice(0, 1).toUpperCase();
-      // Reuse only an existing site icon; never request a third-party favicon service.
-      const nativeIcon = item.querySelector('img[src][width="16"], img[src][width="20"], img[src][width="24"], .b_favicon img, img.XNo5Ab');
-      if (nativeIcon) {
-        const image = document.createElement("img");
-        const src = nativeIcon.getAttribute("src");
-        if (/^(https?:|data:image\/)/i.test(src)) {
-          image.src = src; image.alt = ""; image.referrerPolicy = "no-referrer";
-          image.addEventListener("error", () => image.remove(), { once: true });
-          icon.appendChild(image);
-        }
-      }
+      const nativeIcon = item.querySelector('.b_favicon img, .siteicon img, img.XNo5Ab, img[src*="/ip3/"]');
+      const source = nativeIcon?.getAttribute("data-src") || nativeIcon?.getAttribute("src");
+      const nativeSrc = source && (/^data:image\//i.test(source) ? source : safeWebUrl(source, url));
+      const favicon = new URL("/favicon.ico", destination);
+      favicon.protocol = "https:";
+      const fallback = favicon.href;
+      const image = document.createElement("img");
+      image.alt = "";
+      image.referrerPolicy = "no-referrer";
+      image.loading = "lazy";
+      image.addEventListener("error", () => {
+        if (image.src === fallback) image.remove();
+        else image.src = fallback;
+      });
+      image.src = nativeSrc || fallback;
+      icon.appendChild(image);
       const label = document.createElement("span");
       label.className = "bsp-site-domain";
       label.textContent = host;
@@ -140,27 +156,37 @@ export function createResultTools(document, url, session, sendMessage = message 
   }
 
   function onClick(event) {
-    if (!prefs || prefs.resultOpenMode === "original" || event.defaultPrevented || event.button !== 0
-      || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+    if (!prefs || event.defaultPrevented || event.altKey) return;
+    const mode = prefs.resultOpenMode;
+    const middle = event.type === "auxclick" && event.button === 1;
+    if (!middle && event.button !== 0) return;
+    const native = middle || mode === "original" || event.ctrlKey || event.metaKey || event.shiftKey;
+    const trackNative = session.engine === "bing" && prefs.dimVisited;
+    if (native && !trackNative) return;
     const link = event.target.closest?.("a[href]");
     if (!link || link.hasAttribute("download")) return;
     const item = session.items.find(item => titleLink(item) === link);
     if (!item) return;
     const href = safeWebUrl(link.getAttribute("href"), url);
     if (!href) return;
+    // Bing's tracking URL may never enter browser history when its click handler opens the destination.
+    if (native) {
+      markOpened(href);
+      return;
+    }
     event.preventDefault();
     event.stopImmediatePropagation();
     for (const error of errors) { error.remove(); errors.delete(error); }
-    if (prefs.resultOpenMode === "current") { document.defaultView.location.assign(href); return; }
-    const mode = prefs.resultOpenMode;
+    if (mode === "current") {
+      if (trackNative) markOpened(href);
+      document.defaultView.location.assign(href);
+      return;
+    }
     const trackOpened = prefs.dimVisited;
-    const destination = destinationUrl(href, url, session.engine);
     void Promise.resolve().then(() => sendMessage({ type: "bsp-open-result", url: href, mode }))
       .then(response => {
         if (!response?.ok) throw new Error("open failed");
-        if (disposed || !trackOpened || !prefs.dimVisited || !destination) return;
-        opened.add(destination);
-        refreshOpened();
+        if (!disposed && trackOpened && prefs.dimVisited) markOpened(href);
       })
       .catch(() => {
         if (disposed || !item.isConnected) return;
@@ -170,6 +196,13 @@ export function createResultTools(document, url, session, sendMessage = message 
         error.textContent = t(locale, "openFailed");
         item.appendChild(error); errors.add(error);
       });
+  }
+
+  function markOpened(href) {
+    const destination = destinationUrl(href, url, session.engine);
+    if (!destination) return;
+    opened.add(destination);
+    refreshOpened();
   }
 
   function refreshOpened() {
@@ -203,6 +236,7 @@ export function createResultTools(document, url, session, sendMessage = message 
     domainFilter.dispose();
     try { runtime?.onMessage?.removeListener(onDomainsMessage); } catch { /* Context invalidated. */ }
     document.removeEventListener("click", onClick, true);
+    if (session.engine === "bing") document.removeEventListener("auxclick", onClick, true);
     for (const badge of badges.values()) badge.remove();
     for (const [item, value] of marked) restoreMark(item, value);
     for (const error of errors) error.remove();

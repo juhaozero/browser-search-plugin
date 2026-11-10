@@ -2,10 +2,11 @@ import { isOwnDomElement } from "./layout-dom.mjs";
 import { DOM_MUTE_FLAG, RELAYOUT_FLAG } from "./layout-constants.mjs";
 import { findLayoutShell } from "./layout-dom.mjs";
 
-const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "b_results", "b_content"];
+const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "b_results", "b_content", "web_content_wrapper"];
 
 /** 顶栏/导航晚到时也要触发 realign（结果区 observer 看不到） */
-const NAV_WATCH_IDS = ["searchform", "sfcnt", "sf", "appbar", "slim_appbar", "hdtb", "b_header", "botstuff", "bres"];
+const NAV_WATCH_IDS = ["searchform", "sfcnt", "sf", "appbar", "slim_appbar", "hdtb", "b_header", "botstuff", "bres",
+  "header_wrapper", "search_form", "react-duckbar", "react-filters", "metabar", "head", "s_tab"];
 
 /**
  * @param {Document} document
@@ -43,7 +44,7 @@ function resolveResultsWatchRoot(document) {
     const el = document.getElementById(id);
     if (el) return el;
   }
-  return null;
+  return document.getElementById("content_left")?.parentElement ?? null;
 }
 
 /**

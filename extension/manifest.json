@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "SearchLayout - 搜索结果布局",
-  "version": "0.0.9",
+  "version": "1.0.0",
   "description": "把搜索结果排成更易读的单列或双列布局，并支持自动翻页。",
   "icons": {
     "16": "icons/icon-16.png",
@@ -70,7 +70,14 @@
         "https://www.google.pl/search*",
         "https://www.google.pt/search*",
         "https://www.google.ru/search*",
-        "https://www.google.se/search*"
+        "https://www.google.se/search*",
+        "https://duckduckgo.com/?*q=*",
+        "https://www.baidu.com/s?*",
+        "https://www.baidu.com/",
+        "https://www.baidu.com/?*",
+        "https://baidu.com/s?*",
+        "https://baidu.com/",
+        "https://baidu.com/?*"
       ],
       "js": [
         "content.js"

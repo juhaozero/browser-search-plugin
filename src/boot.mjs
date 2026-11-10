@@ -40,8 +40,8 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
   const session = createSearchSession(document, url, prefs);
   const resultTools = createResultTools(document, url, session);
   resultTools.refresh(prefs, locale);
+  markActive(document, session);
   realign(document, layout);
-  markActive(document, session.engine);
   // 布局已落到自定义列模式（或 original），允许显示结果区
   endLayoutGate(document);
 
@@ -74,8 +74,8 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
         appearance.apply(prefs, locale);
         session.refresh();
         resultTools.refresh(prefs, locale);
+        markActive(document, session);
         realign(document, layout);
-        markActive(document, session.engine);
       });
       // check/ingest 在 mute 外发起请求，真正改 DOM 时走 pager.mutate → runMuted
       void pager.check();
@@ -93,8 +93,8 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
       resultTools.refresh(prefs, locale);
       pager.setEnabled(normalized.autoPage);
       pager.setPrefs(normalized);
+      markActive(document, session);
       realign(document, layout);
-      markActive(document, session.engine);
     });
     void pager.check();
   };
@@ -114,6 +114,7 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
       resizeTimer = 0;
       if (disposed) return;
       realign(document, {});
+      if (deps.attachScroll !== false) void pager.check();
     }, 120);
   };
   const view = document.defaultView;
@@ -175,19 +176,20 @@ async function bootSearchPage(document, url, layout = {}, deps = {}) {
 
 /**
  * @param {Document} document
- * @param {string} engine
+ * @param {{ engine: string, layoutMode?: string | null }} session
  */
-function markActive(document, engine) {
-  document.documentElement.dataset.bspActive = "1";
-  document.documentElement.dataset.bspEngine = engine;
+function markActive(document, session) {
+  const { dataset } = document.documentElement;
+  dataset.bspEngine = session.engine;
   const box = document.getElementById("bsp-results");
-  if (box) {
-    box.dataset.bspCount = String(box.children.length);
-    if (box.dataset.mode) document.documentElement.dataset.bspColumnMode = box.dataset.mode;
-    else delete document.documentElement.dataset.bspColumnMode;
+  if (box) box.dataset.bspCount = String(box.children.length);
+  const mode = box?.dataset.mode ?? session.layoutMode;
+  if (mode) {
+    dataset.bspActive = "1";
+    dataset.bspColumnMode = mode;
   } else {
-    delete document.documentElement.dataset.bspActive;
-    delete document.documentElement.dataset.bspColumnMode;
+    delete dataset.bspActive;
+    delete dataset.bspColumnMode;
   }
 }
 

@@ -49,4 +49,12 @@ export const BING_HOSTS = [
   "bing.com"
 ];
 
-export const SEARCH_MATCHES = [...BING_HOSTS, ...GOOGLE_HOSTS].map(host => `https://${host}/search*`);
+export const DUCKDUCKGO_HOST = "duckduckgo.com";
+export const BAIDU_HOSTS = ["www.baidu.com", "baidu.com"];
+
+export const SEARCH_MATCHES = [
+  ...[...BING_HOSTS, ...GOOGLE_HOSTS].map(host => `https://${host}/search*`),
+  `https://${DUCKDUCKGO_HOST}/?*q=*`,
+  // Baidu can enter its results page from the homepage without loading a new document.
+  ...BAIDU_HOSTS.flatMap(host => [`https://${host}/s?*`, `https://${host}/`, `https://${host}/?*`]),
+];

@@ -41,9 +41,16 @@ export function searchPage({ engine = "google", count = 3, ai = false, placement
       .ai-grid { display:grid; grid-template-columns:300px 352px; width:652px; }
       .g,.b_algo { margin-bottom:28px; }
       #searchform, #b_header { min-height:48px; }
+      #sb_form { display:inline-block; }
+      #sb_form .b_logoArea { display:inline-block; width:40px; height:40px; }
+      #sb_form .b_searchboxForm { display:inline-flex; margin-left:110px; width:550px; height:40px; }
+      #sb_form .b_searchbox { width:770px; }
+      #id_h { float:right; width:115px; height:40px; }
       nav { height:32px; }
     </style></head><body>
-    <header id="${engine === "bing" ? "b_header" : "searchform"}"><form><input name="q" value="test"></form></header>
+    ${engine === "bing"
+      ? '<header id="b_header"><form id="sb_form"><a class="b_logoArea" href="/">Bing</a><div class="b_searchboxForm"><button>Search</button><input class="b_searchbox" name="q" value="test"><button>Voice</button></div></form><div id="id_h">Account</div></header>'
+      : '<header id="searchform"><form><input name="q" value="test"></form></header>'}
     <nav id="unrelated-nav"><a href="#">Navigation</a></nav>
     ${content}<footer id="footer">Pagination</footer>
     </body></html>`;
