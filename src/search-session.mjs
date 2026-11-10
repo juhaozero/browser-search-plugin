@@ -125,13 +125,18 @@ export function createSearchSession(document, url, prefs) {
       const dest = document.getElementById("bsp-results") ?? engine.resultsRoot(document);
       if (!dest) return { added: 0, stopped: true };
       const pagination = engine.nativeLayout ? dest.querySelector(':scope > #page, :scope > [tpl="app/page"]') : null;
+      let added = 0;
       for (const item of fresh) {
         const card = document.importNode(item, true);
+        stripActiveContent(card, url);
+        if (!titleLink(card)) continue;
         if (engine.nativeLayout) card.removeAttribute("id");
         dest.insertBefore(card, pagination);
+        added += 1;
       }
+      if (!added) return { added: 0, stopped: true };
       appendedPages += 1;
-      return { added: fresh.length, stopped: false };
+      return { added, stopped: false };
     },
     apply(next) {
       if (next.columnMode) state.columnMode = next.columnMode;
@@ -355,6 +360,31 @@ const baiduEngine = {
     return item.getAttribute("mu")?.trim() || titleLink(item)?.getAttribute("href") || "";
   },
 };
+
+function stripActiveContent(card, base) {
+  for (const element of card.querySelectorAll("script, style, iframe, frame, object, embed, base, meta, link, animate, set, animateMotion, animateTransform")) {
+    element.remove();
+  }
+  for (const element of [card, ...card.querySelectorAll("*")]) {
+    for (const attribute of [...element.attributes]) {
+      const name = attribute.localName.toLowerCase();
+      if (name.startsWith("on") || name === "srcdoc") {
+        element.removeAttribute(attribute.name);
+        continue;
+      }
+      if (!["href", "xlink:href", "src", "action", "formaction"].includes(name)) continue;
+      const value = attribute.value.trim();
+      if (name === "src" && element.localName === "img" && /^data:image\//i.test(value)) continue;
+      try {
+        const url = new URL(value, base);
+        if (value && (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password) continue;
+      } catch {
+        // Invalid navigation URLs are stripped below.
+      }
+      element.removeAttribute(attribute.name);
+    }
+  }
+}
 
 export function titleLink(item) {
   const duckDuckGoLink = duckDuckGoTitleLink(item);

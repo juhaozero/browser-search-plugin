@@ -52,7 +52,7 @@ Chrome 扩展：把 **Google、Bing、DuckDuckGo 和百度的桌面网页搜索�
 1. 安装依赖并构建：
 
 ```bash
-npm install
+npm ci
 npm run build
 ```
 
@@ -63,6 +63,8 @@ npm run build
 修改源码后重新执行 `npm run build`，再在扩展页点击刷新。
 
 ## 开发
+
+仓库开发约定与验收要求见 [AGENTS.md](AGENTS.md)。
 
 | 命令            | 说明                                                      |
 | --------------- | --------------------------------------------------------- |
@@ -86,7 +88,7 @@ src/                 # 源码（content / popup / session / boot…）
   boot.mjs           # 会话、偏好、语言与 dispose 装配
   shell-layout.mjs   # 结果壳、列宽与侧栏布局
   nav-chrome.mjs     # 顶栏与导航对齐
-  search-field.mjs   # Google 搜索框对齐及还原
+  search-field.mjs   # 搜索框对齐及还原
   bing-layout.mjs    # Bing 事实行与侧栏处理
   dom-watch.mjs      # 观察器、静默改写与滚动监听
   layout-dom.mjs     # 共用 DOM 几何操作
@@ -100,7 +102,7 @@ PRIVACY.md           # 隐私政策
 ## 权限说明
 
 - `storage`：保存布局与自动翻页偏好
-- 内容脚本在匹配的 Google、Bing、DuckDuckGo 和百度网页搜索结果页生效
+- 内容脚本在匹配的 Google、Bing、DuckDuckGo 和百度网页搜索结果页生效。百度首页的脚本用于检测站内首次搜索跳转。
 
 扩展**不会**把搜索词或页面内容上传到开发者服务器。详见 [PRIVACY.md](./PRIVACY.md)。
 

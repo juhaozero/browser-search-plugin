@@ -23,6 +23,7 @@ export async function mountPopupDomains(document, client) {
     status.textContent = t(document.documentElement.dataset.locale, state).replace("{count}", String(count));
   }
   async function apply(value = input.value) {
+    if (fieldset.disabled) return;
     if (!parseDomains(value)) {
       input.setAttribute("aria-invalid", "true");
       state = "domainInvalid"; render(); return;
@@ -35,11 +36,12 @@ export async function mountPopupDomains(document, client) {
       input.removeAttribute("aria-invalid");
       count = result.count;
       state = "domainCount";
-      fieldset.disabled = false;
     } catch {
-      state = "domainUnavailable";
+      state = "domainApplyFailed";
+    } finally {
+      fieldset.disabled = false;
+      render();
     }
-    render();
   }
   section.querySelector("[data-domain-apply]").addEventListener("click", () => { void apply(); });
   section.querySelector("[data-domain-clear]").addEventListener("click", () => { void apply(""); });

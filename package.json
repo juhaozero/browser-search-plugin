@@ -1,7 +1,7 @@
 {
   "name": "browser-search-plugin",
   "version": "1.0.0",
-  "description": "Readable single and dual column layouts with automatic pagination for Google, Bing, and DuckDuckGo search.",
+  "description": "Readable single and dual column layouts with automatic pagination for Google, Bing, DuckDuckGo, and Baidu search.",
   "scripts": {
     "test": "node --max-old-space-size=4096 --test --test-isolation=none --test-concurrency=1 \"test/**/*.test.mjs\"",
     "build": "node scripts/build.mjs",

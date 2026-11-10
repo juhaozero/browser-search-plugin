@@ -29,24 +29,40 @@ export async function mountPopup(document, deps = {}) {
 
   const form = document.getElementById("bsp-prefs");
   if (!form) throw new Error("弹窗缺少表单");
+  const saveError = document.getElementById("bsp-prefs-save-error");
+  let pendingSave = Promise.resolve();
+  let saveGeneration = 0;
 
   async function commit() {
     const next = readForm(document);
-    const saved = await store.save(next);
-    paint(document, saved);
-    return saved;
+    const generation = ++saveGeneration;
+    const save = pendingSave.then(() => store.save(next));
+    pendingSave = save.catch(() => {});
+    try {
+      const saved = await save;
+      if (generation === saveGeneration) {
+        if (saveError) saveError.hidden = true;
+        paint(document, saved);
+      }
+      return saved;
+    } catch (error) {
+      if (saveError && generation === saveGeneration) saveError.hidden = false;
+      throw error;
+    }
   }
+
+  const saveFromForm = () => { void commit().catch(() => {}); };
 
   form.addEventListener("change", event => {
     if (event.target.closest("#bsp-domain-controls")) return;
-    void commit();
+    saveFromForm();
   });
   form.addEventListener("submit", event => event.preventDefault());
 
   for (const button of document.querySelectorAll("[data-preset]")) {
     button.addEventListener("click", () => {
       paint(document, applyPreset(readForm(document), button.dataset.preset));
-      void commit();
+      saveFromForm();
     });
   }
 

@@ -52,7 +52,7 @@ Not supported: image / video / news / maps verticals, mobile pages, the search h
 1. Install dependencies and build:
 
 ```bash
-npm install
+npm ci
 npm run build
 ```
 
@@ -63,6 +63,8 @@ npm run build
 After code changes, run `npm run build` again and click **Reload** on the extension card.
 
 ## Development
+
+See [AGENTS.md](AGENTS.md) for the repository's development and verification rules.
 
 | Command         | Description                                                     |
 | --------------- | --------------------------------------------------------------- |
@@ -90,7 +92,7 @@ PRIVACY.md           # Privacy policy
 ## Permissions
 
 - `storage` — save layout and auto-page preferences
-- Content scripts run on matching Google, Bing, DuckDuckGo, and Baidu web searches
+- Content scripts run on matching Google, Bing, DuckDuckGo, and Baidu web searches. The Baidu homepage script detects the first in-page search navigation.
 
 The extension does **not** upload your queries or page content to a developer server. See [PRIVACY.md](./PRIVACY.md).
 

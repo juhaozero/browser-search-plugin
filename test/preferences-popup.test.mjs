@@ -13,6 +13,33 @@ import { DEFAULT_LOCALE, createLocaleStore } from "../src/i18n.mjs";
 import { mountPopup, readForm } from "../src/popup.mjs";
 import { assertNoNode } from "./assert-dom.mjs";
 
+test("弹窗按操作顺序保存设置，旧响应不覆盖最新输入", async () => {
+  const { document } = parseHTML(readFileSync(new URL("../extension/popup.html", import.meta.url), "utf8"));
+  const started = [];
+  const releases = [];
+  const popup = await mountPopup(document, { prefsStore: {
+    load: async () => DEFAULT_PREFS,
+    save: prefs => new Promise(resolve => {
+      started.push(prefs.pagesPerBatch);
+      releases.push(() => resolve(prefs));
+    }),
+  } });
+  const input = document.querySelector('[name="pagesPerBatch"]');
+  input.value = "5";
+  const older = popup.commit();
+  input.value = "8";
+  const newer = popup.commit();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(started, [5]);
+  releases[0]();
+  await older;
+  assert.equal(input.value, "8");
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(started, [5, 8]);
+  releases[1]();
+  assert.equal((await newer).pagesPerBatch, 8);
+});
+
 test("boot 与即时设置共用偏好校验，非法列模式安全回退", async () => {
   for (const raw of [null, "invalid", { columnMode: "unknown", autoPage: "yes" }]) {
     const { document } = parseHTML(googlePage("test"));

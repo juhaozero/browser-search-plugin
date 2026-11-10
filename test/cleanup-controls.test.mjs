@@ -11,6 +11,7 @@ import { createPageDomainsClient } from "../src/popup-domains.mjs";
 
 test("高级中的域名规则通过当前页消息应用，重开弹窗读回，不进入偏好存储", async () => {
   let domains = [];
+  let failNextSet = true;
   const store = createMemoryPrefsStore();
   const sent = [];
   const client = createPageDomainsClient({
@@ -19,7 +20,13 @@ test("高级中的域名规则通过当前页消息应用，重开弹窗读回�
       assert.equal(id, 17);
       assert.equal(options.frameId, 0);
       sent.push(message);
-      if (message.action === "set") domains = parseDomains(message.value);
+      if (message.action === "set") {
+        if (failNextSet) {
+          failNextSet = false;
+          throw new Error("Temporary failure");
+        }
+        domains = parseDomains(message.value);
+      }
       return { ok: true, domains, count: domains.length };
     },
   });
@@ -30,6 +37,11 @@ test("高级中的域名规则通过当前页消息应用，重开弹窗读回�
   };
   let document = await open();
   document.querySelector('[name="pageDomains"]').value = "zhihu.com";
+  document.querySelector('[data-domain-apply]').click();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(domains, []);
+  assert.equal(document.querySelector("#bsp-domain-controls fieldset").disabled, false);
+  assert.match(document.querySelector("#bsp-domain-error").textContent, /Try again/);
   document.querySelector('[data-domain-apply]').click();
   await new Promise(resolve => setImmediate(resolve));
   assert.ok(domains.includes("zhihu.com"));

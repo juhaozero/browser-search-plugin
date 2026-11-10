@@ -77,6 +77,31 @@ test("auto-page hides native pagination while keeping its own controls usable on
         await page.close();
       }
     }
+
+    const page = await browser.newPage();
+    await page.setContent('<div id="rso"></div>');
+    await page.addScriptTag({ content: bundle.outputFiles[0].text });
+    const imported = await page.evaluate(async () => {
+      const boot = await SearchLayout.bootSearchPage(document, "https://www.google.com/search?q=test", {}, {
+        prefs: { columnMode: "original", autoPage: true }, attachScroll: false, watchDom: false,
+        fetchDocument: async () => new DOMParser().parseFromString(`<div id="rso">
+          <div class="g" onclick="window.importedHandler = true"><h3><a href="https://example.org/">Result</a></h3>
+            <img src="data:image/png;base64,broken" onerror="window.importedHandler = true">
+            <a href="java&#x09;script:window.importedHandler = true">Unsafe</a>
+            <iframe srcdoc="<script>parent.importedHandler = true</script>"></iframe>
+          </div>
+          <div class="g"><h3><a href="javascript:alert(1)">Unsafe result</a></h3></div>
+        </div>`, "text/html"),
+      });
+      const { added } = await boot.pager.check({ viewportHeight: 900, listBottom: 800 });
+      const card = document.querySelector("#rso .g");
+      card.click();
+      card.querySelector("img").dispatchEvent(new Event("error"));
+      return { added, href: card.querySelector("h3 a").href, links: card.querySelectorAll("a[href]").length,
+        imageKept: card.querySelector("img").hasAttribute("src"), embeds: card.querySelectorAll("iframe").length,
+        ranHandler: window.importedHandler === true };
+    });
+    assert.deepEqual(imported, { added: 1, href: "https://example.org/", links: 1, imageKept: true, embeds: 0, ranHandler: false });
   } finally {
     await browser.close();
   }
