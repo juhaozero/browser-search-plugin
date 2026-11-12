@@ -8,17 +8,27 @@ export function resultMarkup(engine, index) {
   </${tag}>`;
 }
 
-export function aiMarkup() {
-  return `<section id="ai-overview" data-attrid="SGE"><h2>AI Overview</h2>
+export function aiMarkup(engine = "google") {
+  const marker = engine === "bing" ? 'id="b_copilot_search_container"' : 'id="ai-overview" data-attrid="SGE"';
+  return `<section ${marker}><h2>AI Overview</h2>
     <div class="ai-inner" style="display:flex;gap:13px">
       <div class="g"><a href="https://example.com/citation"><h3>AI citation</h3></a></div>
       <p>Generated summary</p>
     </div></section>`;
 }
 
-export function searchPage({ engine = "google", count = 3, ai = false, placement = "shell" } = {}) {
+export function searchPage({ engine = "google", count = 3, ai = false, placement = "shell", wideOverview } = {}) {
   const results = Array.from({ length: count }, (_, i) => resultMarkup(engine, i)).join("");
-  const overview = ai ? aiMarkup() : "";
+  const columnMarker = wideOverview === "wrapped" ? 'data-container-id="main-col"' : "data-rl";
+  const wideMarkup = `<div class="wide-overview"${wideOverview === "wrapped" ? ' id="Odp5De"' : ""}>
+    <div class="overview-column"><h2>AI Overview</h2>
+      <div id="m-x-content"><div><div ${columnMarker} class="overview-body">
+        <p>Generated summary</p><div class="g"><a href="https://example.com/citation"><h3>AI citation</h3></a></div>
+      </div></div></div>
+      <details><summary>Show more</summary><p>More of the answer</p></details>
+    </div>
+  </div>`;
+  const overview = wideOverview ? wideMarkup : ai ? aiMarkup(engine) : "";
   const content = engine === "google"
     ? `<div id="rcnt">${placement === "shell" ? overview : ""}
         <div id="center_col"><div id="search"><div id="rso" class="${placement === "inner" && ai ? "ai-grid" : ""}">
@@ -37,7 +47,10 @@ export function searchPage({ engine = "google", count = 3, ai = false, placement
       #b_mcw { display:flex; }
       #b_results { display:inline-block; width:648px; padding:0; margin:0; }
       #b_context { width:360px; }
-      #ai-overview { width:700px; min-height:180px; }
+      #ai-overview, #b_copilot_search_container { width:700px; min-height:180px; }
+      .wide-overview { width:100%; min-width:0; }
+      .overview-column, .overview-body { width:652px; }
+      .overview-column summary { cursor:pointer; }
       .ai-grid { display:grid; grid-template-columns:300px 352px; width:652px; }
       .g,.b_algo { margin-bottom:28px; }
       #searchform, #b_header { min-height:48px; }

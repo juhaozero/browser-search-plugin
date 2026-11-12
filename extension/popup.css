@@ -128,9 +128,127 @@ body {
   outline-offset: 1px;
 }
 
-.bsp-form {
+.bsp-form:not([hidden]) {
   display: grid;
   gap: 10px;
+}
+
+.bsp-onboarding-steps {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+}
+
+.bsp-onboarding-steps li {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  justify-items: center;
+  gap: 6px;
+  padding: 9px 4px;
+  border: 1px solid var(--bsp-line);
+  border-radius: var(--bsp-radius-sm);
+  background: #fbfcfe;
+  color: var(--bsp-ink);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.bsp-onboarding-icon {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--bsp-radius-sm);
+  background: var(--bsp-primary-soft);
+  color: var(--bsp-primary-deep);
+}
+
+.bsp-onboarding-icon::before,
+.bsp-onboarding-icon::after {
+  grid-area: 1 / 1;
+}
+
+.bsp-onboarding-icon-dual::before {
+  content: "";
+  width: 6px;
+  height: 15px;
+  border-radius: 2px;
+  background: currentColor;
+  box-shadow: 9px 0 currentColor;
+  transform: translateX(-4.5px);
+}
+
+.bsp-onboarding-icon-scroll::before {
+  content: "";
+  width: 2px;
+  height: 14px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+.bsp-onboarding-icon-scroll::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid;
+  border-bottom: 2px solid;
+  transform: translateY(2px) rotate(45deg);
+}
+
+.bsp-onboarding-icon-fold::before {
+  content: "";
+  width: 16px;
+  height: 13px;
+  border-block: 2px solid;
+  opacity: 0.5;
+}
+
+.bsp-onboarding-icon-fold::after {
+  content: "";
+  width: 9px;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+}
+
+#bsp-onboarding-try {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--bsp-radius-sm);
+  background: var(--bsp-primary-deep);
+  color: #fff;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+#bsp-onboarding-skip {
+  display: block;
+  min-height: 32px;
+  margin: 4px auto 0;
+  padding: 4px 12px;
+  border: 0;
+  border-radius: var(--bsp-radius-sm);
+  background: transparent;
+  color: var(--bsp-muted);
+  font: inherit;
+  cursor: pointer;
+}
+
+.bsp-onboarding button:focus-visible {
+  outline: 2px solid var(--bsp-primary);
+  outline-offset: 2px;
+}
+
+.bsp-onboarding button:disabled {
+  opacity: 0.72;
+  cursor: wait;
 }
 
 .bsp-section {

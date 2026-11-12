@@ -48,14 +48,14 @@ test("Chromium：四组设置、可恢复广告、侧栏预算、自动继续与
         const box = document.querySelector("#bsp-results");
         return { gap: getComputedStyle(box).rowGap, padding: getComputedStyle(box.firstElementChild).paddingTop,
           cardWidth: box.firstElementChild.getBoundingClientRect().width,
-          ai: getComputedStyle(document.querySelector("#ai-overview")).display,
+          ai: getComputedStyle(document.querySelector("#ai-overview, #b_copilot_search_container")).display,
           sidebar: getComputedStyle(document.querySelector(engine === "bing" ? "#b_context" : "#rhs")).display,
           fold: !!controlsAd.closest("details"), overflow: document.documentElement.scrollWidth > innerWidth + 2 };
       }, { engine, fresh: [101, 102, 103].map(n => resultMarkup(engine, n)) });
       assert.equal(state.gap, "12px");
       assert.equal(state.padding, "10px");
       assert.ok(state.cardWidth <= 521);
-      assert.equal(state.ai, "none");
+      assert.equal(state.ai === "none", engine === "google");
       assert.equal(state.sidebar === "none", engine === "google");
       assert.equal(state.fold, true);
       assert.equal(state.overflow, false);
@@ -76,7 +76,7 @@ test("Chromium：四组设置、可恢复广告、侧栏预算、自动继续与
         return { sameNode: document.querySelector("[data-bsp-ad-region] > a") === controlsAd,
           opacity: getComputedStyle(controlsAd.parentElement).opacity,
           gap: getComputedStyle(document.querySelector("#bsp-results")).rowGap,
-          ai: getComputedStyle(document.querySelector("#ai-overview")).display };
+          ai: getComputedStyle(document.querySelector("#ai-overview, #b_copilot_search_container")).display };
       });
       assert.equal(restored.sameNode, true);
       assert.equal(restored.opacity, "0.45");

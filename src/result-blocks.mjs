@@ -1,3 +1,5 @@
+import { BING_OVERVIEW, GOOGLE_OVERVIEW } from "./ai-overview.mjs";
+
 // Structural markers only: never classify blocks by translated heading text.
 const TYPES = [
   { pref: "collapsePaa", label: "foldedPaa", selector: '[data-paa], .related-question-pair, .b_relatedQuestions, .b_ans.b_paa' },
@@ -10,7 +12,7 @@ export function resultBlocks(document) {
   for (const type of TYPES) {
     for (const marker of document.querySelectorAll(type.selector)) {
       if (!marker.closest("#rso, #search, #b_results")) continue;
-      if (marker.closest('#rhs, #b_context, #tads, #tadsb, #bottomads, [data-ai-overview], #Odp5De, [data-attrid="SGE"], [data-attrid="AIOverview"]')) continue;
+      if (marker.closest(`#rhs, #b_context, #tads, #tadsb, #bottomads, ${GOOGLE_OVERVIEW}, ${BING_OVERVIEW}`)) continue;
       if (marker.matches("g-scrolling-carousel") && !marker.querySelector('a[href*="youtube.com/watch"], a[href*="/videos/"], video')) continue;
       const block = marker.closest(".MjjYud, .g, .tF2Cxc, .b_ans") ?? marker;
       // A generic wrapper may also contain unrelated organic results. Fold the marker in that case.

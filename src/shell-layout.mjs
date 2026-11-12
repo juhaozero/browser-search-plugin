@@ -5,6 +5,7 @@ import { clearHorizontalMargin, isDisplayed, isElement, measureViewport, placeAt
 import { bingSideRails, hideBingSideRails, stackBingFactRows } from "./bing-layout.mjs";
 import { alignBaiduSearchField, alignDuckDuckGoSearchField, alignEngineSearchField, restoreSearchField } from "./search-field.mjs";
 import { duckDuckGoResultsList } from "./duckduckgo.mjs";
+import { alignOverviews, BING_OVERVIEW, clearOverviews, GOOGLE_OVERVIEW } from "./ai-overview.mjs";
 
 /**
  * @param {HTMLElement} box
@@ -38,6 +39,7 @@ function alignResultsBox(box, viewportWidth) {
     && root.style.getPropertyValue("--bsp-main-width") === `${metrics.mainWidth}px`
   ) {
     refreshChromeLayout(document, metrics);
+    alignOverviews(document, viewportWidth, metrics.aside);
     return;
   }
 
@@ -51,6 +53,7 @@ function alignResultsBox(box, viewportWidth) {
     root.style.setProperty("--bsp-shell-width", `${metrics.shellWidth}px`);
     root.style.setProperty("--bsp-main-width", `${metrics.mainWidth}px`);
     root.style.setProperty("--bsp-target-left", `${metrics.targetLeft}px`);
+    alignOverviews(document, viewportWidth, metrics.aside);
   } finally {
     delete root.dataset[RELAYOUT_FLAG];
   }
@@ -324,18 +327,23 @@ function hasLeadingShellSibling(shell, column) {
  */
 function spanLeadingShellRows(shell, column) {
   let spanned = false;
+  const overview = shell.id === "rcnt" ? GOOGLE_OVERVIEW : BING_OVERVIEW;
   for (const child of shell.children) {
     if (child === column) break;
     if (!isElement(child) || !isDisplayed(child) || child.contains(column)) continue;
     if (child.id === "rhs" || child.querySelector("#rhs")) continue;
     if (child.tagName === "SCRIPT" || child.tagName === "STYLE") continue;
+    spanned = true;
+    if (child.matches(overview)) {
+      child.setAttribute("data-bsp-overview-row", "");
+      continue;
+    }
     stampCentered(child);
     child.style.setProperty("flex", "0 0 100%", "important");
     child.style.setProperty("width", "100%", "important");
     child.style.setProperty("max-width", "100%", "important");
     child.style.setProperty("margin-left", "0", "important");
     child.style.setProperty("margin-right", "0", "important");
-    spanned = true;
   }
   return spanned;
 }
@@ -419,6 +427,7 @@ function expandLayoutRoots(document) {
  * @param {Document} document
  */
 function clearCenteredLayout(document) {
+  clearOverviews(document);
   restoreSearchField(document);
   for (const el of document.querySelectorAll("[data-bsp-centered]")) {
     for (const prop of CENTERED_STYLE_PROPS) {
@@ -482,6 +491,7 @@ function realign(document, layout) {
       } else {
         restoreSearchField(document);
       }
+      alignOverviews(document, viewportWidth);
       return;
     }
     clearCenteredLayout(document);

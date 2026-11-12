@@ -33,6 +33,8 @@ The Extension stores settings you choose in the popup, for example:
 
 These preferences are saved with `chrome.storage` (`sync` when available, otherwise `local`). If Chrome Sync is enabled for extensions, Chrome may sync these preferences across your signed-in devices according to Google’s own policies. The Extension developer does not receive a copy of these preferences on a developer-operated server.
 
+The first-run guide keeps its pending or completed state in `chrome.storage.local`. “Enable dual columns and preview” saves Dual as your layout preference and opens a Bing results page with the fixed query “Chrome extensions”. “Skip” records completion locally. The guide state does not sync.
+
 ### 2. Search result page content (processed on-device only)
 
 On matching Google, Bing, DuckDuckGo, and Baidu **desktop web search result pages**, the Extension’s content script may:
@@ -142,6 +144,7 @@ Questions about this Privacy Policy or the Extension:
 
 - **不**向开发者自有服务器上传你的搜索词、浏览历史或页面内容。
 - 偏好设置保存在 `chrome.storage`；若开启 Chrome 同步，可能随你的 Chrome 账号同步到其他设备。
+- 首次引导的待完成或已完成状态仅保存在 `chrome.storage.local`。「一键开启双列并预览」会保存双列偏好，并打开关键词为「Chrome extensions」的 Bing 示例搜索。「跳过」仅记录本地完成状态。引导状态不参与同步。
 - 预设和特殊模块折叠开关属于上述偏好；「大家还在问」、视频轮播和精选摘要仅本地折叠，可展开。本页域名隐藏在弹窗「高级」中管理，规则和隐藏数量仅在内存保留，通过弹窗与当前搜索页之间的本地消息读写，刷新、搜索导航或会话释放后清除，不保存、不同步、不上传。过滤与折叠不新增网络请求，也不阻止搜索引擎自身加载。
 - 仅在匹配的搜索结果页本地读取/改写结果条目，并可能在浏览器内请求下一页结果以拼接显示。
 - 可选固定相关搜索与显示站点徽标。开启站点徽标后，原生图标不可用时，浏览器可能直接向目标站发起 HTTPS `/favicon.ico` 请求，请求不带来源页地址。图片无法加载时显示域名首字母。按偏好打开结果时，目标地址传给扩展后台用于创建标签。

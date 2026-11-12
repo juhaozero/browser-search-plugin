@@ -5,6 +5,16 @@ export const DEFAULT_LOCALE = "en";
 /** @type {Record<Locale, Record<string, string>>} */
 export const MESSAGES = {
   en: {
+    onboardingLabel: "Getting started",
+    onboardingLayout: "Side-by-side results",
+    onboardingPaging: "Auto page on scroll",
+    onboardingCleanup: "Fold related questions",
+    onboardingTry: "Enable dual columns and preview",
+    onboardingSkip: "Skip",
+    onboardingStarting: "Opening preview…",
+    onboardingFailed: "Could not connect to SearchLayout. Reopen the popup and try again.",
+    onboardingPreviewFailed: "Dual columns are on. Could not open Bing. Try again.",
+    onboardingStorageFailed: "Could not save the change. Try again.",
     presets: "Quick presets",
     presetSimple: "Simple",
     presetReading: "Focused reading",
@@ -92,6 +102,16 @@ export const MESSAGES = {
     autoContinueHint: "Off: pause at the batch limit. On: keep loading while near the bottom.",
   },
   zh: {
+    onboardingLabel: "快速上手",
+    onboardingLayout: "双列看结果",
+    onboardingPaging: "滚动自动翻页",
+    onboardingCleanup: "折叠相关问题",
+    onboardingTry: "一键开启双列并预览",
+    onboardingSkip: "跳过",
+    onboardingStarting: "正在打开预览…",
+    onboardingFailed: "未能连接 SearchLayout，请重新打开弹窗再试。",
+    onboardingPreviewFailed: "双列已开启，但未能打开 Bing，请重试。",
+    onboardingStorageFailed: "未能保存更改，请重试。",
     presets: "一键预设",
     presetSimple: "简洁",
     presetReading: "专注阅读",
@@ -222,14 +242,16 @@ export function applyLocale(document, locale) {
 
   const langGroup = document.querySelector(".bsp-lang");
   if (langGroup) langGroup.setAttribute("aria-label", t(normalized, "langLabel"));
+  document.getElementById("bsp-onboarding")?.setAttribute("aria-label", t(normalized, "onboardingLabel"));
 }
 
 /**
  * @param {typeof chrome.storage} [storage]
+ * @param {Locale} [fallback]
  */
-export function createLocaleStore(storage) {
+export function createLocaleStore(storage, fallback = DEFAULT_LOCALE) {
   if (!storage) {
-    let value = DEFAULT_LOCALE;
+    let value = fallback;
     const listeners = new Set();
     return {
       async load() {
@@ -275,7 +297,7 @@ export function createLocaleStore(storage) {
       } catch {
         // local unavailable
       }
-      return DEFAULT_LOCALE;
+      return fallback;
     },
     /**
      * @param {unknown} next

@@ -14,6 +14,10 @@ test("Chromium installed extension: background / foreground tabs, current tab, p
     const id = await browser.installExtension(resolve("extension"));
     const popup = await browser.newPage();
     await popup.goto(`chrome-extension://${id}/popup.html`);
+    await popup.waitForSelector("#bsp-onboarding", { visible: true });
+    await popup.evaluate(() => chrome.storage.local.set({ bspOnboarding: "complete" }));
+    await popup.reload();
+    await popup.waitForSelector("#bsp-prefs", { visible: true });
     await popup.select('[name="resultOpenMode"]', "background");
     await popup.evaluate(async () => {
       for (const name of ["pinRelated", "emphasizeSite", "dimVisited"]) document.querySelector(`[name="${name}"]`).checked = true;

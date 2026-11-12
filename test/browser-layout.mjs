@@ -46,7 +46,9 @@ test("真实 Chromium：AI、数量、视口、动态插入、还原与观察器
       return page.evaluate(() => {
         const rect = el => { const r=el.getBoundingClientRect(); return { x:r.x,y:r.y,width:r.width,height:r.height,right:r.right,bottom:r.bottom }; };
         const box = document.getElementById("bsp-results");
-        return { box:rect(box), cards:[...box.children].map(rect), ai:document.getElementById("ai-overview") ? rect(document.getElementById("ai-overview")) : null,
+        const overview = document.querySelector("#ai-overview, #b_copilot_search_container");
+        return { box:rect(box), cards:[...box.children].map(rect), ai:overview ? rect(overview) : null,
+          viewport:document.documentElement.clientWidth,
           navBorder:getComputedStyle(document.getElementById("unrelated-nav")).borderTopWidth,
           aiInner:document.querySelector(".ai-inner")?.getAttribute("style"),
           rhsVisible:document.getElementById("rhs") ? getComputedStyle(document.getElementById("rhs")).display !== "none" : true };
@@ -67,6 +69,9 @@ test("真实 Chromium：AI、数量、视口、动态插入、还原与观察器
             assert.ok(Math.abs(g.cards[0].width-baseline.cards[0].width)<1,label);
             assert.ok(g.ai.bottom<=g.box.y+1,label);
             assert.equal(g.aiInner,'display:flex;gap:13px',label);
+            assert.ok(Math.abs(g.ai.x + g.ai.right - g.viewport) < 2, label);
+            assert.ok(g.ai.x >= 0 && g.ai.right <= g.viewport, label);
+            assert.equal(g.ai.width, Math.min(700, g.viewport - 64), label);
           }
           const columns=mode === "double" && width>=768 ? 2 : 1;
           assert.ok(Math.abs(g.cards[0].width-(g.box.width-(columns-1)*24)/columns)<1,label);
@@ -92,9 +97,46 @@ test("真实 Chromium：AI、数量、视口、动态插入、还原与观察器
     }
     // AI inside a native grid must not constrain cards or donate its citation as a card.
     await load({engine:"google",ai:true,placement:"inner",count:3},1920,"double");
-    assert.equal((await geometry()).cards.length,3);
-    assert.ok((await geometry()).box.width>1000);
+    const inner = await geometry();
+    assert.equal(inner.cards.length,3);
+    assert.ok(inner.box.width>1000);
+    assert.ok(Math.abs(inner.ai.x + inner.ai.right - inner.viewport) < 2);
     await page.evaluate(()=>boot.dispose());
+    await load({engine:"google",ai:true,placement:"inner",count:3},1200,"double");
+    const besideSidebar = await geometry();
+    assert.ok(Math.abs(besideSidebar.ai.x + besideSidebar.ai.right - besideSidebar.viewport) < 2);
+    assert.ok(besideSidebar.ai.right <= await page.$eval("#rhs", el => el.getBoundingClientRect().left));
+    await page.evaluate(()=>boot.dispose());
+    // Google can put the answer and expand button in a narrow column inside a wide row.
+    for (const mode of ["single-center", "double"]) for (const wideOverview of ["wrapped", "standalone"]) {
+      await load({wideOverview,placement:"inner"},1440,mode);
+      const contentGeometry = () => page.evaluate(() => {
+        const viewport = document.documentElement.clientWidth;
+        const bounds = [".overview-column h2", ".overview-body", ".overview-column summary"].map(selector => {
+          const { left, right } = document.querySelector(selector).getBoundingClientRect();
+          return { left, right };
+        });
+        return { viewport, bounds };
+      });
+      const assertCentered = async () => {
+        const { viewport, bounds } = await contentGeometry();
+        for (const { left, right } of bounds) {
+          assert.ok(Math.abs(left + right - viewport) < 2, JSON.stringify({mode, wideOverview, viewport, left, right}));
+          assert.ok(left >= 0 && right <= viewport);
+        }
+      };
+      await assertCentered();
+      await page.click(".overview-column summary");
+      assert.ok(await page.$(".overview-column details[open]"));
+      assert.equal((await geometry()).cards.length, 3);
+      await page.setViewport({width:390,height:844});
+      await page.waitForFunction(() => Number(document.documentElement.dataset.bspShellWidth) <= 326);
+      await assertCentered();
+      await page.evaluate(()=>boot.applyPrefs({columnMode:"original",autoPage:false}));
+      assert.equal(await page.$("[data-bsp-overview]"), null);
+      assert.equal(await page.$eval(".overview-column", el => el.getBoundingClientRect().width), 652);
+      await page.evaluate(()=>boot.dispose());
+    }
     // AI arrives beside the result column after initial boot, with unchanged viewport.
     await load({engine:"google",count:3},1920,"double");
     const before=await geometry();
@@ -114,6 +156,8 @@ test("真实 Chromium：AI、数量、视口、动态插入、还原与观察器
     await page.evaluate(()=>boot.applyPrefs({columnMode:"original",autoPage:false}));
     assert.equal(await page.$("#bsp-results"),null);
     assert.equal(await page.$("[data-bsp-results-path]"),null);
+    assert.equal(await page.$("[data-bsp-overview], [data-bsp-overview-row]"),null);
+    assert.equal(await page.$eval("#ai-overview", el => getComputedStyle(el).translate), "none");
     await page.evaluate(()=>boot.dispose());
     assert.equal(await page.evaluate(()=>observerStats.active),0);
     // Exercise fetched-page ingestion in addition to engine-side DOM insertion.

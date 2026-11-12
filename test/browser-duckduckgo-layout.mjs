@@ -32,6 +32,7 @@ test("DuckDuckGo aligns results, search, tabs, and filters despite offset native
         #web_content_wrapper { margin-left: 190px; }
         .native-rail { width: 550px; max-width: 100%; margin-left: 145px; overflow: hidden; }
         .react-results--main { max-width: 530px; }
+        [data-react-module-id="wikinlp"] { width: 500px; }
       </style>
       <header id="header_wrapper">
         <a class="header__logo-wrap">Logo</a>
@@ -48,6 +49,7 @@ test("DuckDuckGo aligns results, search, tabs, and filters despite offset native
           <button>Safe Search</button><button data-testid="date-filter-trigger">Any time</button>
         </nav></div>
         <section data-testid="mainline">
+          <div class="react-module" data-react-module-id="wikinlp"><button>Search Assist</button></div>
           <ol class="react-results--main">
             <li data-layout="organic"><a data-testid="result-title-a" href="https://example.com/one">One</a></li>
             <li data-layout="organic"><a data-testid="result-title-a" href="https://example.com/two">Two</a></li>
@@ -72,6 +74,7 @@ test("DuckDuckGo aligns results, search, tabs, and filters despite offset native
       };
       return {
         list: rect(".react-results--main"), form: rect("#search_form"),
+        overview: rect('[data-react-module-id="wikinlp"]'),
         logo: rect(".header__logo-wrap"), menu: rect(".header--aside"),
         tabs: rect("#react-duckbar nav"), primaryTabs: rect("#react-duckbar nav ul:first-of-type"),
         tabActions: rect("#react-duckbar nav ul:last-of-type"),
@@ -84,6 +87,8 @@ test("DuckDuckGo aligns results, search, tabs, and filters despite offset native
     const desktop = await geometry();
     assert.equal(desktop.list.width, 1320);
     assert.ok(Math.abs(desktop.list.center - desktop.viewportWidth / 2) < 1);
+    assert.ok(Math.abs(desktop.overview.center - desktop.list.center) < 1);
+    assert.equal(desktop.overview.width, 500);
     assert.ok(Math.abs(desktop.form.center - desktop.list.center) < 1);
     assert.ok(desktop.form.left > desktop.logo.right && desktop.form.right < desktop.menu.left);
     assert.deepEqual(desktop.tabs, desktop.list);
@@ -107,16 +112,27 @@ test("DuckDuckGo aligns results, search, tabs, and filters despite offset native
     const narrow = await geometry();
     assert.equal(narrow.first.left, narrow.second.left);
     assert.ok(narrow.list.left > 0 && narrow.list.right < narrow.viewportWidth);
+    assert.ok(Math.abs(narrow.overview.center - narrow.list.center) < 1);
+    assert.ok(narrow.overview.left >= 0 && narrow.overview.right <= narrow.viewportWidth);
     assert.deepEqual(narrow.tabs, narrow.list);
     assert.deepEqual(narrow.filters, narrow.list);
     assert.ok(Math.abs(narrow.primaryTabs.center - narrow.list.center) < 1);
     assert.ok(narrow.tabActions.left > narrow.primaryTabs.right);
 
-    await page.setViewport({ width: 1440, height: 900 });
     await page.evaluate(() => duckLayout.applyPrefs({ columnMode: "single-center", autoPage: false }));
+    const narrowSingle = await geometry();
+    assert.ok(Math.abs(narrowSingle.overview.center - narrowSingle.viewportWidth / 2) < 1);
+    assert.ok(narrowSingle.overview.left >= 0 && narrowSingle.overview.right <= narrowSingle.viewportWidth);
+
+    await page.setViewport({ width: 1440, height: 900 });
+    await page.waitForFunction(() => {
+      const { left, right } = document.querySelector(".react-results--main").getBoundingClientRect();
+      return Math.abs(left + right - document.documentElement.clientWidth) < 2;
+    });
     const single = await geometry();
     assert.equal(single.list.width, 1100);
     assert.ok(Math.abs(single.list.center - single.form.center) < 1);
+    assert.ok(Math.abs(single.overview.center - single.viewportWidth / 2) < 1);
     assert.deepEqual(single.tabs, single.list);
     assert.ok(Math.abs(single.primaryTabs.center - single.list.center) < 1);
     assert.deepEqual(single.filters, single.list);
@@ -128,6 +144,8 @@ test("DuckDuckGo aligns results, search, tabs, and filters despite offset native
     assert.equal(original.list.width, 550);
     assert.equal(original.tabs.left, 90);
     assert.equal(original.filters.left, 450);
+    assert.equal(original.overview.left, 335);
+    assert.equal(await page.$("[data-bsp-overview]"), null);
 
     await page.evaluate(() => {
       document.querySelector(".react-results--main").remove();

@@ -1,5 +1,6 @@
 import { GOOGLE_HOSTS, BING_HOSTS, isBaiduSearchPath } from "./search-hosts.mjs";
 import { isSpecialResult, resultBlocks } from "./result-blocks.mjs";
+import { BAIDU_OVERVIEW, BING_OVERVIEW, GOOGLE_OVERVIEW } from "./ai-overview.mjs";
 import { createDuckDuckGoSession, duckDuckGoTitleLink, isDuckDuckGoWeb } from "./duckduckgo.mjs";
 
 const PAGE_SIZE = 10;
@@ -340,7 +341,8 @@ const bingEngine = {
   organicItems(root) {
     const blocks = resultBlocks(root);
     return [...root.querySelectorAll("#bsp-results > li.b_algo, #b_results > li.b_algo")]
-      .filter(element => isBingOrganic(element) && !isSpecialResult(element, blocks));
+      .filter(element => isBingOrganic(element) && !element.matches(BING_OVERVIEW) && !element.querySelector(BING_OVERVIEW)
+        && !isSpecialResult(element, blocks));
   },
   itemHref(item) {
     return bingTargetUrl(titleLink(item)?.getAttribute("href") ?? "");
@@ -354,7 +356,8 @@ const baiduEngine = {
     return document.getElementById("content_left");
   },
   organicItems(root) {
-    return [...root.querySelectorAll("#content_left > .result.c-container")].filter(titleLink);
+    return [...root.querySelectorAll("#content_left > .result.c-container")]
+      .filter(element => !element.matches(BAIDU_OVERVIEW) && titleLink(element));
   },
   itemHref(item) {
     return item.getAttribute("mu")?.trim() || titleLink(item)?.getAttribute("href") || "";
@@ -414,7 +417,7 @@ function isGoogleOrganic(element) {
   const isLegacy = element.classList.contains("g");
   const isModern = element.classList.contains("tF2Cxc");
   if (!isLegacy && !isModern) return false;
-  if (element.closest('#tads, #bottomads, #tadsb, #rhs, .uEierd, [data-text-ad], .kp-wholepage, #Odp5De, [data-attrid="SGE"], [data-attrid="AIOverview"], [data-ai-overview]')) return false;
+  if (element.closest(`#tads, #bottomads, #tadsb, #rhs, .uEierd, [data-text-ad], .kp-wholepage, ${GOOGLE_OVERVIEW}`)) return false;
   if (element.querySelector(".related-question-pair")) return false;
   if (!element.querySelector("h3") || !element.querySelector("a[href]")) return false;
   return true;

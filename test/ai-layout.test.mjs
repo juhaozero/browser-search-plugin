@@ -14,13 +14,14 @@ test("Google 顶部 AI 独占一行，新增/替换节点使壳缓存失效", as
   shell.insertAdjacentHTML("afterbegin", aiMarkup());
   alignResultsBox(document.getElementById("bsp-results"), 1920);
   assert.equal(shell.style.flexWrap, "wrap");
-  assert.equal(document.getElementById("ai-overview").style.flex, "0 0 100%");
+  assert.ok(document.getElementById("ai-overview").hasAttribute("data-bsp-overview-row"));
   const replacement = document.getElementById("ai-overview").cloneNode(true);
   document.getElementById("ai-overview").replaceWith(replacement);
-  replacement.style.removeProperty("flex");
+  replacement.removeAttribute("data-bsp-overview-row");
   alignResultsBox(document.getElementById("bsp-results"), 1920);
-  assert.equal(replacement.style.flex, "0 0 100%");
+  assert.ok(replacement.hasAttribute("data-bsp-overview-row"));
   boot.dispose();
+  assert.equal(document.querySelector("[data-bsp-overview], [data-bsp-overview-row]"), null);
 });
 
 test("AI 引用不搬入结果，顶部 AI 顺序和原始 DOM 可恢复", () => {

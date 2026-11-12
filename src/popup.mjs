@@ -1,6 +1,7 @@
-import { applyLocale, createLocaleStore, DEFAULT_LOCALE, normalizeLocale } from "./i18n.mjs";
+import { applyLocale, createLocaleStore, DEFAULT_LOCALE, normalizeLocale, t } from "./i18n.mjs";
 import { DEFAULT_PREFS, PREF_PRESETS, applyPreset, createChromePrefsStore, normalizePrefs } from "./preferences.mjs";
 import { createPageDomainsClient, mountPopupDomains } from "./popup-domains.mjs";
+import { finishOnboarding, hasPendingOnboarding } from "./onboarding.mjs";
 
 /**
  * @param {Document} document
@@ -10,28 +11,31 @@ import { createPageDomainsClient, mountPopupDomains } from "./popup-domains.mjs"
  * }} [deps]
  */
 export async function mountPopup(document, deps = {}) {
-  const store = deps.prefsStore
-    ?? (typeof chrome !== "undefined" && chrome?.storage
-      ? createChromePrefsStore(chrome.storage)
-      : null);
+  const api = typeof chrome === "undefined" ? null : chrome;
+  const store = deps.prefsStore ?? (api?.storage ? createChromePrefsStore(api.storage) : null);
   if (!store) throw new Error("没有可用的偏好存储");
 
+  const guide = document.getElementById("bsp-onboarding");
+  const showGuide = Boolean(guide && api?.runtime && await hasPendingOnboarding(api.storage?.local));
   const localeStore = deps.localeStore
-    ?? (typeof chrome !== "undefined" && chrome?.storage
-      ? createLocaleStore(chrome.storage)
-      : createLocaleStore());
+    ?? createLocaleStore(api?.storage, showGuide ? "zh" : DEFAULT_LOCALE);
 
   const [prefs, locale] = await Promise.all([store.load(), localeStore.load()]);
   paint(document, prefs);
   applyLocale(document, normalizeLocale(locale));
-  const domains = await mountPopupDomains(document, deps.pageDomainsClient
-    ?? (typeof chrome !== "undefined" && chrome.tabs ? createPageDomainsClient(chrome.tabs) : async () => null));
-
   const form = document.getElementById("bsp-prefs");
   if (!form) throw new Error("弹窗缺少表单");
   const saveError = document.getElementById("bsp-prefs-save-error");
+  let domains;
   let pendingSave = Promise.resolve();
   let saveGeneration = 0;
+
+  async function showSettings() {
+    if (guide) guide.hidden = true;
+    form.hidden = false;
+    domains = await mountPopupDomains(document, deps.pageDomainsClient
+      ?? (api?.tabs ? createPageDomainsClient(api.tabs) : async () => null));
+  }
 
   async function commit() {
     const next = readForm(document);
@@ -70,9 +74,48 @@ export async function mountPopup(document, deps = {}) {
     btn.addEventListener("click", () => {
       const next = normalizeLocale(btn.getAttribute("data-locale"));
       applyLocale(document, next);
-      domains.render();
+      domains?.render();
       void localeStore.save(next);
     });
+  }
+
+  if (showGuide) {
+    guide.hidden = false;
+    const button = document.getElementById("bsp-onboarding-try");
+    const skip = document.getElementById("bsp-onboarding-skip");
+    const errorMessage = document.getElementById("bsp-onboarding-error");
+    const labelButton = key => {
+      button.dataset.i18n = key;
+      button.textContent = t(document.documentElement.dataset.locale, key);
+    };
+    async function finishGuide(action, trigger) {
+      if (button.disabled) return;
+      button.disabled = true;
+      skip.disabled = true;
+      errorMessage.hidden = true;
+      if (action === "preview") labelButton("onboardingStarting");
+      const result = await finishOnboarding(api, action);
+      if (result === "ok") {
+        paint(document, await store.load());
+        const settings = showSettings();
+        form.querySelector("input[name='columnMode']:checked")?.focus();
+        await settings;
+      } else {
+        button.disabled = false;
+        skip.disabled = false;
+        labelButton("onboardingTry");
+        const errorKey = result === "preview" ? "onboardingPreviewFailed"
+          : result === "storage" ? "onboardingStorageFailed" : "onboardingFailed";
+        errorMessage.dataset.i18n = errorKey;
+        errorMessage.textContent = t(document.documentElement.dataset.locale, errorKey);
+        errorMessage.hidden = false;
+        trigger.focus();
+      }
+    }
+    button.addEventListener("click", () => { void finishGuide("preview", button); });
+    skip.addEventListener("click", () => { void finishGuide("skip", skip); });
+  } else {
+    await showSettings();
   }
 
   return {
@@ -89,7 +132,7 @@ export async function mountPopup(document, deps = {}) {
     async setLocale(next) {
       const saved = await localeStore.save(next);
       applyLocale(document, saved);
-      domains.render();
+      domains?.render();
       return saved;
     },
   };

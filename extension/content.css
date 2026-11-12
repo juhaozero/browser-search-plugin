@@ -60,6 +60,8 @@ html[data-bsp-bing-sidebar="hide"] #b_results ~ .lite-entcard {
 
 html[data-bsp-google-sidebar="hide"] #rhs,
 html[data-bsp-ai="hide"] #Odp5De,
+html[data-bsp-ai="hide"] div[jscontroller="EYwa3d"],
+html[data-bsp-ai="hide"] div:has(> #m-x-content),
 html[data-bsp-ai="hide"] [data-attrid="SGE"],
 html[data-bsp-ai="hide"] [data-attrid="AIOverview"],
 html[data-bsp-ai="hide"] [data-ai-overview] {
@@ -324,6 +326,29 @@ html[data-bsp-active] [data-bsp-results-path] {
   width: 100%;
   max-width: var(--bsp-single-max);
   min-width: 0;
+}
+
+/* AI answers stay in the engine's DOM. Only their outer card is centered. */
+html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview] {
+  box-sizing: border-box !important;
+  grid-column: 1 / -1 !important;
+  min-width: 0 !important;
+  max-width: min(100%, calc(100vw - var(--bsp-side-gap)), var(--bsp-overview-max-width, 100%)) !important;
+  translate: var(--bsp-overview-offset, 0px) !important;
+}
+
+/* A direct shell child keeps its native width but reserves the whole flex row. */
+html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview-row] {
+  flex: 0 0 auto !important;
+  margin-left: 0 !important;
+  margin-right: var(--bsp-overview-row-space, 0px) !important;
+}
+
+/* Fit Google's answer and expand control into the width of the centered row. */
+html[data-bsp-engine="google"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview]
+  :is(div:has(#m-x-content), #m-x-content, #m-x-content > div, #m-x-content :is([data-container-id="main-col"], div[data-rl])) {
+  max-width: 100% !important;
+  min-width: 0 !important;
 }
 
 #bsp-results[data-mode="single-center"] {

@@ -33,7 +33,18 @@
         </div>
       </header>
 
-      <form id="bsp-prefs" class="bsp-form">
+      <section id="bsp-onboarding" class="bsp-section bsp-onboarding" aria-label="Getting started" hidden>
+        <ul class="bsp-onboarding-steps">
+          <li><span class="bsp-onboarding-icon bsp-onboarding-icon-dual" aria-hidden="true"></span><span data-i18n="onboardingLayout">Side-by-side results</span></li>
+          <li><span class="bsp-onboarding-icon bsp-onboarding-icon-scroll" aria-hidden="true"></span><span data-i18n="onboardingPaging">Auto page on scroll</span></li>
+          <li><span class="bsp-onboarding-icon bsp-onboarding-icon-fold" aria-hidden="true"></span><span data-i18n="onboardingCleanup">Fold related questions</span></li>
+        </ul>
+        <button id="bsp-onboarding-try" type="button" data-i18n="onboardingTry">Enable dual columns and preview</button>
+        <button id="bsp-onboarding-skip" type="button" data-i18n="onboardingSkip">Skip</button>
+        <p id="bsp-onboarding-error" class="bsp-field-hint" role="alert" data-i18n="onboardingFailed" hidden>Could not connect to SearchLayout. Reopen the popup and try again.</p>
+      </section>
+
+      <form id="bsp-prefs" class="bsp-form" hidden>
         <p id="bsp-prefs-save-error" class="bsp-field-hint" role="alert" data-i18n="prefsSaveFailed" hidden>Could not save settings. Change a setting or choose a preset to retry.</p>
         <section class="bsp-section" aria-labelledby="bsp-presets-title">
           <div class="bsp-section-head">

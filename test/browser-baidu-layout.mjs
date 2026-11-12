@@ -78,6 +78,7 @@ test("Baidu centers the search box, menu, filters, and result cards", async () =
       #s_tab_inner { display: flex; gap: 12px; width: 550px; }
       #container { width: 900px; }
       #content_left { width: 550px; }
+      [tpl="new_baikan_index"] { width: 530px; margin-left: 20px; }
       #content_right { float: right; width: 260px; }
     </style>
     <div id="wrapper"><div id="head"><a id="result_logo">Baidu</a>
@@ -88,6 +89,7 @@ test("Baidu centers the search box, menu, filters, and result cards", async () =
       </nav></div></div>
       <div id="container"><aside id="content_right"><div tpl="recommend_list_san">Related</div><div>Trending</div></aside><div id="content_left">
         <div tpl="app/search-tool"><button>Filters</button></div>
+        <div class="result c-container" tpl="new_baikan_index"><h3><a href="https://example.com/citation">AI answer</a></h3></div>
         <div id="first" class="result c-container" mu="https://example.com/one"><h3><a href="https://example.com/one">One</a></h3></div>
         <div id="second" class="result c-container"><h3><a href="https://example.com/two">Two</a></h3></div>
         <div tpl="recommend_list">People also search</div>
@@ -112,7 +114,7 @@ test("Baidu centers the search box, menu, filters, and result cards", async () =
       const firstTab = box("#s_tab_inner a:first-child");
       const lastTab = box("#s_tab_inner a:last-of-type");
       return { results: box("#content_left"), first: box("#first"), second: box("#second"), search: box("#form"),
-        filters: box('[tpl="app/search-tool"]'), sidebar: box("#content_right"),
+        filters: box('[tpl="app/search-tool"]'), sidebar: box("#content_right"), overview: box('[tpl="new_baikan_index"]'),
         tabsCenter: (firstTab.left + lastTab.right) / 2, viewport: document.documentElement.clientWidth,
         autoPage: baiduLayout.session.autoPage };
     });
@@ -120,6 +122,9 @@ test("Baidu centers the search box, menu, filters, and result cards", async () =
     assert.equal(desktop.autoPage, false);
     assert.equal(desktop.results.width, 1320);
     assert.equal(desktop.results.center, desktop.viewport / 2);
+    assert.ok(Math.abs(desktop.overview.center - desktop.results.center) < 1);
+    assert.ok(desktop.overview.bottom <= desktop.first.top);
+    assert.equal(await page.$('[tpl="new_baikan_index"][data-bsp-result]'), null);
     assert.equal(desktop.search.center, desktop.results.center);
     assert.ok(Math.abs(desktop.tabsCenter - desktop.results.center) < 1);
     assert.equal(await page.$eval("#s_tab_inner a:last-of-type", link => {
@@ -144,15 +149,27 @@ test("Baidu centers the search box, menu, filters, and result cards", async () =
     assert.ok(Math.abs(narrow.search.center - narrow.results.center) < 1);
     assert.ok(Math.abs(narrow.tabsCenter - narrow.results.center) < 1);
     assert.ok(narrow.results.right <= narrow.viewport);
+    assert.ok(Math.abs(narrow.overview.center - narrow.results.center) < 1);
+    assert.ok(narrow.overview.left >= 0 && narrow.overview.right <= narrow.viewport);
+
+    await page.evaluate(() => baiduLayout.applyPrefs({ columnMode: "single-center", autoPage: false }));
+    const narrowSingle = await geometry();
+    assert.ok(Math.abs(narrowSingle.overview.center - narrowSingle.viewport / 2) < 1);
+    assert.ok(narrowSingle.overview.left >= 0 && narrowSingle.overview.right <= narrowSingle.viewport);
 
     await page.setViewport({ width: 1440, height: 900 });
     for (const [mode, width] of [["single-center", 1100], ["single", 550], ["original", 550]]) {
       await page.evaluate(columnMode => baiduLayout.applyPrefs({ columnMode, autoPage: false }), mode);
       const current = await geometry();
       assert.equal(current.results.width, width);
-      if (mode === "single-center") assert.equal(current.search.center, current.results.center);
+      if (mode === "single-center") {
+        assert.equal(current.search.center, current.results.center);
+        assert.ok(Math.abs(current.overview.center - current.viewport / 2) < 1);
+      }
     }
     assert.equal((await geometry()).search.left, 120);
+    assert.equal((await geometry()).overview.left, 140);
+    assert.equal(await page.$("[data-bsp-overview]"), null);
     assert.equal(await page.$eval('[tpl="app/rs"]', module => module.checkVisibility()), true);
 
     await page.evaluate(() => {
@@ -194,7 +211,7 @@ test("Baidu centers the search box, menu, filters, and result cards", async () =
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await page.waitForFunction(() => baiduLayout.pager.stopped && baiduLayout.session.appendedPages === 1);
     assert.deepEqual(await page.evaluate(() => pageRequests), ["10"]);
-    assert.deepEqual(await page.$$eval("#content_left > .result", cards => cards.map(card => card.textContent.trim())), ["One", "Two", "Three"]);
+    assert.deepEqual(await page.$$eval("#content_left > [data-bsp-result]", cards => cards.map(card => card.textContent.trim())), ["One", "Two", "Three"]);
     assert.equal(await page.$$eval("#first", cards => cards.length), 1);
     assert.equal(await page.$eval('[tpl="app/page"] a', link => new URL(link.href, "https://www.baidu.com/s").searchParams.get("pn")), "10");
   } finally {
