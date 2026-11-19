@@ -1,8 +1,13 @@
 import { isOwnDomElement } from "./layout-dom.mjs";
 import { DOM_MUTE_FLAG, NATIVE_SITE_ICON, RELAYOUT_FLAG, SMALL_SITE_ICON } from "./layout-constants.mjs";
 import { findLayoutShell } from "./layout-dom.mjs";
+import { GOOGLE_OVERVIEW } from "./ai-overview.mjs";
 
 const RESULTS_WATCH_IDS = ["rso", "search", "center_col", "b_results", "b_content", "web_content_wrapper"];
+const GOOGLE_OVERVIEW_COLUMNS = '#m-x-content, [data-container-id="main-col"], [data-container-id="right-col"], [data-rl]';
+const SITE_ICON_ATTRIBUTES = ["src", "data-src"];
+const GOOGLE_OVERVIEW_ATTRIBUTES = ["class", "style", "hidden", "id", "jscontroller", "data-attrid",
+  "data-ai-overview", "data-container-id", "data-rl"];
 
 /** 顶栏/导航晚到时也要触发 realign（结果区 observer 看不到） */
 const NAV_WATCH_IDS = ["searchform", "sfcnt", "sf", "appbar", "slim_appbar", "hdtb", "b_header", "botstuff", "bres",
@@ -85,6 +90,14 @@ function watchResults(document, onChange, watchIcons = () => false) {
     if (muteDepth > 0) return;
     if (document.documentElement.dataset[RELAYOUT_FLAG]) return;
     if (document.documentElement.dataset[DOM_MUTE_FLAG]) return;
+    const { bspEngine, bspColumnMode } = document.documentElement.dataset;
+    if (bspEngine === "google" && (bspColumnMode === "double" || bspColumnMode === "single-center")
+      && records.some(isGoogleOverviewMutation)) {
+      // 对齐晚到的概览后再绘制，避免先显示在较宽的结果容器左侧。
+      clearTimer();
+      onChange();
+      return;
+    }
     const iconChanged = watchIcons() && records.some(isSiteIconMutation);
     if (!iconChanged && records.every(record => record.type === "attributes" || isOwnDomMutation(record))) return;
     if (timer) return;
@@ -98,10 +111,10 @@ function watchResults(document, onChange, watchIcons = () => false) {
   const observers = [];
   const observedScopes = new Set();
 
-  const attach = (root) => {
+  const attach = (root, attributeFilter = SITE_ICON_ATTRIBUTES) => {
     if ([...observedScopes].some(scope => scope.contains(root))) return;
     const obs = new MutationObserver(onMutations);
-    obs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["src", "data-src"] });
+    obs.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter });
     observers.push(obs);
     observedScopes.add(root);
   };
@@ -114,13 +127,19 @@ function watchResults(document, onChange, watchIcons = () => false) {
     }
   };
 
+  const attachResultsWatches = (root) => {
+    const google = document.documentElement.dataset.bspEngine === "google";
+    // Google 的概览可以出现在 #rcnt 外，也可能通过属性变化就地显示。
+    const main = google ? document.getElementById("main") : null;
+    const shell = findLayoutShell(document);
+    const scope = main?.contains(root) ? main : shell?.contains(root) ? shell : root;
+    attach(scope, google ? [...SITE_ICON_ATTRIBUTES, ...GOOGLE_OVERVIEW_ATTRIBUTES] : SITE_ICON_ATTRIBUTES);
+    attachNavWatches(scope);
+  };
+
   const root = resolveResultsWatchRoot(document);
   if (root) {
-    // 顶部 AI 常是 #center_col 的兄弟；只观察 #rso 会漏掉它的插入。
-    const shell = findLayoutShell(document);
-    const scope = shell?.contains(root) ? shell : root;
-    attach(scope);
-    attachNavWatches(scope);
+    attachResultsWatches(root);
   } else {
     // 结果容器晚到时用有界轮询挂载，避免对 body 开 subtree 观察（易 OOM）
     findTimer = (globalThis.setInterval ?? setInterval)(() => {
@@ -128,10 +147,7 @@ function watchResults(document, onChange, watchIcons = () => false) {
       const found = resolveResultsWatchRoot(document);
       if (found) {
         clearFindTimer();
-        const shell = findLayoutShell(document);
-        const scope = shell?.contains(found) ? shell : found;
-        attach(scope);
-        attachNavWatches(scope);
+        attachResultsWatches(found);
         onChange();
         return;
       }
@@ -189,11 +205,28 @@ function isOwnDomMutation(record) {
   return touched.every(isOwnDomNode);
 }
 
+/** @param {MutationRecord} record */
+function isGoogleOverviewMutation(record) {
+  const { type, target, addedNodes, removedNodes } = record;
+  if (isOwnDomMutation(record)) return false;
+  if (type === "attributes") {
+    if (!GOOGLE_OVERVIEW_ATTRIBUTES.includes(record.attributeName)) return false;
+    const overview = `${GOOGLE_OVERVIEW}, [data-bsp-overview]`;
+    return target.matches?.(overview) || target.querySelector?.(overview)
+      || (target.closest?.(overview)
+        && (target.matches?.(GOOGLE_OVERVIEW_COLUMNS) || target.querySelector?.(GOOGLE_OVERVIEW_COLUMNS)));
+  }
+  const selector = target.closest?.(GOOGLE_OVERVIEW)
+    ? `${GOOGLE_OVERVIEW}, ${GOOGLE_OVERVIEW_COLUMNS}`
+    : GOOGLE_OVERVIEW;
+  return [...addedNodes, ...removedNodes].some(node => node.matches?.(selector) || node.querySelector?.(selector));
+}
+
 const SITE_ICONS = `${NATIVE_SITE_ICON}, ${SMALL_SITE_ICON}`;
 
-function isSiteIconMutation({ target, type, addedNodes, removedNodes }) {
+function isSiteIconMutation({ target, type, attributeName, addedNodes, removedNodes }) {
   if (!target.closest?.("[data-bsp-result]") || target.closest(".bsp-site-badge")) return false;
-  if (type === "attributes") return target.matches(SITE_ICONS);
+  if (type === "attributes") return SITE_ICON_ATTRIBUTES.includes(attributeName) && target.matches(SITE_ICONS);
   return [...addedNodes, ...removedNodes].some(node => !node.matches?.(".bsp-site-badge")
     && (node.matches?.(SITE_ICONS) || node.querySelector?.(SITE_ICONS)));
 }

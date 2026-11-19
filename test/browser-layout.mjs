@@ -137,11 +137,110 @@ test("真实 Chromium：AI、数量、视口、动态插入、还原与观察器
       assert.equal(await page.$eval(".overview-column", el => el.getBoundingClientRect().width), 652);
       await page.evaluate(()=>boot.dispose());
     }
+    // Google's overview can have a separate source rail beside the answer.
+    for (const mode of ["single-center", "double"]) {
+      await load({wideOverview:"sources",placement:"shell"},1542,mode);
+      const overviewGeometry = () => page.evaluate(() => {
+        const rect = selector => document.querySelector(selector).getBoundingClientRect();
+        const viewport = document.documentElement.clientWidth;
+        const answer = rect(".overview-body");
+        const sources = rect('[data-container-id="right-col"]');
+        return {
+          centered: [answer, rect(".overview-column h2"), rect(".overview-column summary")]
+            .every(({left,right}) => Math.abs(left + right - viewport) < 2),
+          sourcesBelow: sources.width > 0 && sources.top >= answer.bottom && sources.left >= 0 && sources.right <= viewport,
+          sourcesHidden: sources.width === 0,
+          knowledgeHidden: rect("#rhs").width === 0,
+        };
+      });
+      assert.deepEqual(await overviewGeometry(), {
+        centered:true,sourcesBelow:true,sourcesHidden:false,knowledgeHidden:false,
+      }, mode);
+      await page.evaluate(mode => boot.applyPrefs({columnMode:mode,autoPage:false,googleSidebar:false}), mode);
+      assert.deepEqual(await overviewGeometry(), {
+        centered:true,sourcesBelow:false,sourcesHidden:true,knowledgeHidden:true,
+      }, mode);
+      await page.evaluate(mode => boot.applyPrefs({columnMode:mode,autoPage:false,googleSidebar:true}), mode);
+      const lateSources = await page.$eval(".overview-source-slot", async slot => {
+        const parent = slot.parentElement;
+        slot.remove();
+        await new Promise(resolve => requestAnimationFrame(resolve));
+        parent.append(slot);
+        await new Promise(resolve => queueMicrotask(resolve));
+        const answer = document.querySelector(".overview-body").getBoundingClientRect();
+        const sources = slot.getBoundingClientRect();
+        return sources.width > 0 && sources.top >= answer.bottom
+          && Math.abs(answer.left + answer.right - document.documentElement.clientWidth) < 2;
+      });
+      assert.ok(lateSources, mode);
+      await page.setViewport({width:390,height:844});
+      await page.waitForFunction(() => Number(document.documentElement.dataset.bspShellWidth) <= 326);
+      assert.ok((await overviewGeometry()).sourcesBelow, mode);
+      assert.ok((await overviewGeometry()).centered, mode);
+      await page.setViewport({width:1542,height:844});
+      await page.evaluate(() => boot.applyPrefs({columnMode:"original",autoPage:false}));
+      const original = await page.evaluate(() => {
+        const answer = document.querySelector(".overview-body").getBoundingClientRect();
+        const sources = document.querySelector('[data-container-id="right-col"]').getBoundingClientRect();
+        return sources.left >= answer.right && sources.top === answer.top;
+      });
+      assert.ok(original, mode);
+      assert.equal(await page.$("[data-bsp-overview-columns], [data-bsp-overview-sources]"), null);
+      await page.evaluate(() => boot.dispose());
+    }
+    // Google can reveal an existing overview by changing its class without inserting any nodes.
+    for (const mode of ["single-center", "double"]) {
+      await load({engine:"google",ai:true,count:3},1920,mode);
+      await page.addStyleTag({content:`
+        #ai-overview.pending { display: none }
+        #ai-overview { transition: translate 200ms linear }
+      `});
+      await page.$eval("#ai-overview", el => el.classList.add("pending"));
+      await page.waitForFunction(() => document.getElementById("ai-overview").getBoundingClientRect().width === 0);
+      // Recompute while the placeholder is hidden, like the layout pass during boot.
+      await page.evaluate(mode => boot.applyPrefs({columnMode:mode,autoPage:false}), mode);
+      const reveal = await page.$eval("#ai-overview", el => new Promise(resolve => {
+        requestAnimationFrame(() => {
+          el.classList.remove("pending");
+          queueMicrotask(() => {
+            const { left, right, width } = el.getBoundingClientRect();
+            resolve({ visible: width > 0, centered: Math.abs(left + right - document.documentElement.clientWidth) < 2 });
+          });
+        });
+      }));
+      assert.deepEqual(reveal, {visible:true,centered:true}, mode);
+      const resized = await page.$eval("#ai-overview", el => new Promise(resolve => {
+        requestAnimationFrame(() => {
+          el.style.width = "560px";
+          queueMicrotask(() => {
+            const { left, right } = el.getBoundingClientRect();
+            resolve({
+              centered: Math.abs(left + right - document.documentElement.clientWidth) < 2,
+              transition: getComputedStyle(el).transitionProperty,
+            });
+          });
+        });
+      }));
+      assert.deepEqual(resized, {centered:true,transition:"translate"}, mode);
+      await page.evaluate(() => boot.dispose());
+    }
     // AI arrives beside the result column after initial boot, with unchanged viewport.
     await load({engine:"google",count:3},1920,"double");
     const before=await geometry();
-    await page.$eval("#rcnt",(el,html)=>el.insertAdjacentHTML("afterbegin",html),aiMarkup());
-    await page.waitForFunction(()=>document.getElementById("rcnt").style.flexWrap === "wrap");
+    const firstFrame = await page.$eval("#rcnt", (shell, html) => new Promise(resolve => {
+      requestAnimationFrame(() => {
+        shell.insertAdjacentHTML("afterbegin", html);
+        queueMicrotask(() => {
+          const { left, right } = document.getElementById("ai-overview").getBoundingClientRect();
+          resolve({
+            visible: getComputedStyle(document.body).opacity === "1",
+            centered: Math.abs(left + right - document.documentElement.clientWidth) < 2,
+            wraps: shell.style.flexWrap === "wrap",
+          });
+        });
+      });
+    }), aiMarkup());
+    assert.deepEqual(firstFrame, { visible: true, centered: true, wraps: true });
     assert.equal((await geometry()).box.width,before.box.width);
     // A burst of organic results triggers collection once, including newly appended cards.
     await page.$eval("#rso",(el,html)=>el.insertAdjacentHTML("beforeend",html),

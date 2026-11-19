@@ -337,6 +337,11 @@ html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
   translate: var(--bsp-overview-offset, 0px) !important;
 }
 
+/* Commit the measured offset before allowing the site's transitions again. */
+html[data-bsp-engine="google"] [data-bsp-overview="measuring"] {
+  transition-property: none !important;
+}
+
 /* A direct shell child keeps its native width but reserves the whole flex row. */
 html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview-row] {
   flex: 0 0 auto !important;
@@ -349,6 +354,39 @@ html[data-bsp-engine="google"]:is([data-bsp-column-mode="single-center"], [data-
   :is(div:has(#m-x-content), #m-x-content, #m-x-content > div, #m-x-content :is([data-container-id="main-col"], div[data-rl])) {
   max-width: 100% !important;
   min-width: 0 !important;
+}
+
+/* Stack Google's answer and its source rail without moving either native branch. */
+html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview-columns] {
+  grid-template-areas: none !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  grid-template-rows: none !important;
+  grid-auto-flow: row !important;
+  flex-direction: column !important;
+}
+
+html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview-columns] > * {
+  grid-area: auto / 1 !important;
+  flex: 0 0 auto !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+}
+
+html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview-sources] {
+  order: 1 !important;
+}
+
+html:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"])
+  :is([data-bsp-overview-sources], [data-bsp-overview-sources] [data-container-id="right-col"]) {
+  position: relative !important;
+  inset: auto !important;
+  float: none !important;
+  max-width: 100% !important;
+  margin-inline: 0 !important;
+}
+
+html[data-bsp-google-sidebar="hide"]:is([data-bsp-column-mode="single-center"], [data-bsp-column-mode="double"]) [data-bsp-overview-sources] {
+  display: none !important;
 }
 
 #bsp-results[data-mode="single-center"] {

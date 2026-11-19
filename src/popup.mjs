@@ -17,8 +17,10 @@ export async function mountPopup(document, deps = {}) {
 
   const guide = document.getElementById("bsp-onboarding");
   const showGuide = Boolean(guide && api?.runtime && await hasPendingOnboarding(api.storage?.local));
+  const browserLocale = showGuide ? api?.i18n?.getUILanguage() : undefined;
+  const fallbackLocale = /^zh(?:-|$)/i.test(browserLocale ?? "") ? "zh" : DEFAULT_LOCALE;
   const localeStore = deps.localeStore
-    ?? createLocaleStore(api?.storage, showGuide ? "zh" : DEFAULT_LOCALE);
+    ?? createLocaleStore(api?.storage, fallbackLocale);
 
   const [prefs, locale] = await Promise.all([store.load(), localeStore.load()]);
   paint(document, prefs);

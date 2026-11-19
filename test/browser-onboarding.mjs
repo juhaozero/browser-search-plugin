@@ -27,14 +27,29 @@ test("first install shows a compact guide with preview and skip actions", async 
     await popup.goto(`chrome-extension://${id}/popup.html`);
     popup.setDefaultTimeout(5000);
     await popup.waitForSelector("#bsp-onboarding", { visible: true });
-    assert.equal(await popup.$eval("#bsp-onboarding-try", el => el.textContent), "一键开启双列并预览");
-    assert.equal(await popup.$eval("#bsp-onboarding-skip", el => el.textContent), "跳过");
+    const browserLanguage = await popup.evaluate(() => chrome.i18n.getUILanguage());
+    const initialLocale = browserLanguage.split("-")[0].toLowerCase() === "zh" ? "zh" : "en";
+    assert.equal(await popup.$eval("html", el => el.dataset.locale), initialLocale);
     assert.equal(await popup.$eval("#bsp-prefs", el => el.hidden), true);
     assert.equal(await popup.$$eval(".bsp-onboarding-icon", icons => icons.filter(icon => icon.checkVisibility()).length), 3);
-    assert.equal(await popup.evaluate(() => {
-      const button = document.getElementById("bsp-onboarding-skip").getBoundingClientRect();
-      return document.documentElement.scrollWidth === innerWidth && button.bottom <= innerHeight;
-    }), true);
+    const guideCopy = {
+      en: ["Side-by-side results", "Auto page on scroll", "Fold related questions", "Enable dual columns and preview", "Skip"],
+      zh: ["双列看结果", "滚动自动翻页", "折叠相关问题", "一键开启双列并预览", "跳过"],
+    };
+    const savedLocale = initialLocale === "en" ? "zh" : "en";
+    for (const locale of [initialLocale, savedLocale]) {
+      await popup.click(`button[data-locale="${locale}"]`);
+      assert.deepEqual(await popup.$$eval(".bsp-onboarding-steps [data-i18n], .bsp-onboarding button",
+        items => items.map(item => item.textContent)), guideCopy[locale]);
+      assert.equal(await popup.evaluate(() => {
+        const button = document.getElementById("bsp-onboarding-skip").getBoundingClientRect();
+        return document.documentElement.scrollWidth === innerWidth && button.bottom <= innerHeight;
+      }), true);
+    }
+    await popup.waitForFunction(async locale => (await chrome.storage.sync.get("uiLocale")).uiLocale === locale, {}, savedLocale);
+    await popup.reload();
+    await popup.waitForSelector("#bsp-onboarding", { visible: true });
+    assert.equal(await popup.$eval("html", el => el.dataset.locale), savedLocale);
 
     const page = await browser.newPage();
     await page.triggerExtensionAction((await browser.extensions()).get(id));
@@ -45,6 +60,7 @@ test("first install shows a compact guide with preview and skip actions", async 
     await browser.waitForTarget(item => item.url() === "about:blank#bsp-onboarding-example", { timeout: 5000 });
     await popup.reload();
     await popup.waitForSelector("#bsp-prefs", { visible: true });
+    assert.equal(await popup.$eval("html", el => el.dataset.locale), savedLocale);
     assert.equal(await popup.$eval("#bsp-onboarding", el => el.hidden), true);
     assert.equal(await popup.$eval('input[value="double"]', el => el.checked), true);
     assert.deepEqual(await popup.evaluate(() => chrome.storage.local.get("bspOnboarding")), { bspOnboarding: "complete" });

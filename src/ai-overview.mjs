@@ -16,6 +16,9 @@ const OVERVIEWS = {
 };
 const CENTERED = "data-bsp-overview";
 const ROW = "data-bsp-overview-row";
+const COLUMNS = "data-bsp-overview-columns";
+const SOURCES = "data-bsp-overview-sources";
+const GOOGLE_SOURCES = '[data-container-id="right-col"]';
 const OFFSET = "--bsp-overview-offset";
 const ROW_SPACE = "--bsp-overview-row-space";
 const MAX_WIDTH = "--bsp-overview-max-width";
@@ -33,15 +36,21 @@ export function alignOverviews(document, viewportWidth, aside = null) {
   }
 
   const asideRect = rectOf(aside);
+  const isGoogle = engine === "google";
+  if (isGoogle) clearOverviewColumns(document);
   for (const element of overviews) {
-    element.setAttribute(CENTERED, "");
+    element.setAttribute(CENTERED, isGoogle ? "measuring" : "");
     element.style.removeProperty(OFFSET);
     element.style.removeProperty(ROW_SPACE);
     element.style.removeProperty(MAX_WIDTH);
     let { width, left, top, bottom } = rectOf(element);
-    if (!width) continue;
-    const column = engine === "google" ? googleOverviewColumn(element) : null;
+    if (!width) {
+      element.setAttribute(CENTERED, "");
+      continue;
+    }
+    const column = isGoogle ? googleOverviewColumn(element) : null;
     const contentWidth = rectOf(column).width;
+    if (column) stackGoogleSources(column, element.querySelector(GOOGLE_SOURCES));
     if (contentWidth > 0 && contentWidth < width) {
       element.style.setProperty(MAX_WIDTH, `${contentWidth}px`);
       ({ width, left, top, bottom } = rectOf(element));
@@ -63,19 +72,43 @@ export function alignOverviews(document, viewportWidth, aside = null) {
       ({ width, left } = columnRect);
     }
     element.style.setProperty(OFFSET, `${(viewportWidth - width) / 2 - left}px`);
+    if (isGoogle) {
+      // Commit the final offset before restoring Google's transitions on the overview.
+      rectOf(element);
+      element.setAttribute(CENTERED, "");
+    }
   }
 }
 
 function googleOverviewColumn(element) {
+  const main = element.querySelector('[data-container-id="main-col"]');
+  if (main) return main;
   const content = element.querySelector("#m-x-content");
-  if (!content || rectOf(element.querySelector('[data-container-id="right-col"]')).width > 0) return null;
-  return content.querySelector('[data-container-id="main-col"]')
-    ?? content.querySelector("[data-rl]")
+  if (!content) return null;
+  return content.querySelector(`[data-rl]:not(${GOOGLE_SOURCES}, ${GOOGLE_SOURCES} *)`)
     ?? content.querySelector(":scope > div:only-child")
     ?? content;
 }
 
+function stackGoogleSources(answer, sources) {
+  if (!sources || answer.contains(sources) || sources.contains(answer)) return;
+  let parent = answer.parentElement;
+  while (!parent.contains(sources)) parent = parent.parentElement;
+  let branch = sources;
+  while (branch.parentElement !== parent) branch = branch.parentElement;
+  parent.setAttribute(COLUMNS, "");
+  branch.setAttribute(SOURCES, "");
+}
+
+function clearOverviewColumns(document) {
+  for (const element of document.querySelectorAll(`[${COLUMNS}], [${SOURCES}]`)) {
+    element.removeAttribute(COLUMNS);
+    element.removeAttribute(SOURCES);
+  }
+}
+
 export function clearOverviews(document) {
+  clearOverviewColumns(document);
   for (const element of document.querySelectorAll(`[${CENTERED}], [${ROW}]`)) clearOverview(element);
 }
 

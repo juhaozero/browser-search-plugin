@@ -12,13 +12,14 @@ A Chrome extension that makes **Google, Bing, DuckDuckGo, and Baidu desktop web 
 - **Page-only domain hiding**: Open Advanced → Hide domains on this page, enter domains such as `pinterest.com` or `zhihu.com`, then select Apply. Filtering includes subdomains and appended results. Select Restore all to clear the rules for the current page.
 - **Special result blocks**: Separate switches for People Also Ask, video carousels and featured snippets. Recognized blocks can be expanded in place and restored without replacing their nodes.
 - **Column modes**: Original / Single / Single-center / Double (results as cards)
+- **AI answer layout**: Single-center and Double center recognized Google AI Overviews, Bing Copilot answers, DuckDuckGo Search Assist, and Baidu AI answers. Google AI Overviews that arrive after the results appear centered from their first render.
 - **Auto-page**: Append the next page of organic results as you scroll near the bottom. Turn off auto-page to restore native pagination controls
 - **DuckDuckGo**: When the native More Results button is available, auto-page follows the extension’s batch settings. DuckDuckGo controls loading when its own Infinite Scroll setting is enabled
 - **Baidu**: All four desktop web search layouts and automatic pagination are available. Centered modes align the search box, navigation, and filters. Custom layouts hide recognized related-search modules
 - **Loading status**: See the number of appended pages, retry failed requests, continue after each 10-page pause, or return to the top
 - **Instant preferences**: Change settings from the toolbar popup; stored in `chrome.storage` and can sync with your Chrome account
 - **Reading appearance**: Compact / Comfortable / Relaxed, with an optional 320–1600px maximum per-column width (blank uses automatic width)
-- **Visibility controls**: Google knowledge sidebar, Bing sidebar, and Google AI Overview
+- **Visibility controls**: Google sidebar, Bing sidebar, and Google AI Overview. In centered modes, Google AI Overview source cards appear below the answer and follow the Google sidebar toggle.
 - **Ads**: Keep, collapse, or dim explicitly identified top/bottom ad areas locally; collapsed ads can be expanded and original nodes are restored when disabled
 - **Pagination settings**: 1–50 pages per batch, 0–3000px bottom threshold, and optional automatic continuation while near the bottom
 - **Result opening**: Engine default, current tab, new tab, or background tab for organic result titles. New/background tabs preserve the results page; modifier and middle clicks keep browser behavior
@@ -61,6 +62,8 @@ npm run build
 4. **Load unpacked** → select the `extension` or `dist` folder in this repo
 
 After code changes, run `npm run build` again and click **Reload** on the extension card.
+
+Open the extension popup after the first install to see the getting-started guide. It uses your saved language preference, or defaults to Chinese when the browser interface is in Chinese and English otherwise. Use **EN** or **中文** in the upper right to switch and save your preference. **Enable dual columns and preview** turns on dual columns and opens a sample Bing search. **Skip** goes straight to settings. The guide is marked complete in the current browser and stays complete after extension updates.
 
 ## Development
 

@@ -19,12 +19,13 @@ export function aiMarkup(engine = "google") {
 
 export function searchPage({ engine = "google", count = 3, ai = false, placement = "shell", wideOverview } = {}) {
   const results = Array.from({ length: count }, (_, i) => resultMarkup(engine, i)).join("");
-  const columnMarker = wideOverview === "wrapped" ? 'data-container-id="main-col"' : "data-rl";
-  const wideMarkup = `<div class="wide-overview"${wideOverview === "wrapped" ? ' id="Odp5De"' : ""}>
+  const withSources = wideOverview === "sources";
+  const columnMarker = wideOverview === "standalone" ? "data-rl" : 'data-container-id="main-col"';
+  const wideMarkup = `<div class="wide-overview${withSources ? " overview-with-sources" : ""}"${wideOverview !== "standalone" ? ' id="Odp5De"' : ""}>
     <div class="overview-column"><h2>AI Overview</h2>
       <div id="m-x-content"><div><div ${columnMarker} class="overview-body">
         <p>Generated summary</p><div class="g"><a href="https://example.com/citation"><h3>AI citation</h3></a></div>
-      </div></div></div>
+      </div>${withSources ? '<div class="overview-source-slot"><aside data-container-id="right-col"><a href="https://example.com/source">Overview source</a></aside></div>' : ""}</div></div>
       <details><summary>Show more</summary><p>More of the answer</p></details>
     </div>
   </div>`;
@@ -50,6 +51,10 @@ export function searchPage({ engine = "google", count = 3, ai = false, placement
       #ai-overview, #b_copilot_search_container { width:700px; min-height:180px; }
       .wide-overview { width:100%; min-width:0; }
       .overview-column, .overview-body { width:652px; }
+      .overview-with-sources .overview-column { width:100%; }
+      .overview-with-sources #m-x-content > div { display:grid; grid-template-columns: minmax(0, 652px) minmax(0, 372px); gap:24px; }
+      .overview-with-sources .overview-body { width:auto; }
+      .overview-source-slot { grid-column:2; }
       .overview-column summary { cursor:pointer; }
       .ai-grid { display:grid; grid-template-columns:300px 352px; width:652px; }
       .g,.b_algo { margin-bottom:28px; }
