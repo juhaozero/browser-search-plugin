@@ -403,7 +403,7 @@ test("清单只注入搜索结果页且不申请落地页权限", () => {
   const manifest = JSON.parse(readFileSync(new URL("../extension/manifest.json", import.meta.url), "utf8"));
   const serialized = JSON.stringify(manifest);
   assert.equal(manifest.manifest_version, 3);
-  assert.deepEqual(manifest.permissions, ["storage"]);
+  assert.deepEqual(manifest.permissions, ["storage", "contextMenus"]);
   assert.equal(manifest.host_permissions, undefined);
   assert.equal(manifest.content_scripts[0].matches.includes("https://www.google.com/search*"), true);
   assert.equal(manifest.content_scripts[0].js.includes("content.js"), true);

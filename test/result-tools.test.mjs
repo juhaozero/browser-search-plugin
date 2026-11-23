@@ -207,7 +207,7 @@ test("新标签与后台标签成功后标记当前页，失败、关闭偏好�
 
 test("已访问只改变允许的颜色，不新增历史权限", () => {
   const manifest = JSON.parse(readFileSync("extension/manifest.json", "utf8"));
-  assert.deepEqual(manifest.permissions, ["storage"]);
+  assert.deepEqual(manifest.permissions, ["storage", "contextMenus"]);
   const css = readFileSync("extension/content.css", "utf8");
   const rules = [...css.matchAll(/[^{}]*:visited[^{}]*\{([^{}]*)\}/g)];
   assert.equal(rules.length, 2);

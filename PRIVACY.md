@@ -69,6 +69,7 @@ The Extension does not intentionally collect or transmit to the developer:
 The Extension requests:
 
 - **`storage`** — to save and load your preferences
+- **`contextMenus`** — only to show a layout switcher when you right-click the Extension’s toolbar icon. Menu labels follow your interface language preference. Choosing a mode updates the same local preferences as the popup. This permission does not grant access to page content or browsing history
 - **Access to Google, Bing, DuckDuckGo, and Baidu desktop search results** through content scripts that arrange results and, on supported engines, optionally load more in the browser
 - **Access to the Baidu homepage** through a content script that detects in-page navigation to search results so the layout applies on the first search
 
@@ -82,7 +83,7 @@ Opening a new/background tab does not require the `tabs` permission. The Extensi
 
 Information accessed or stored by the Extension is used solely to:
 
-- Apply and remember your layout / auto-page preferences
+- Apply and remember your layout / auto-page preferences, including changes made from the toolbar icon’s right-click menu
 - Improve readability of search result pages as described above
 
 We do **not** use Extension data for advertising, creditworthiness decisions, or unrelated product purposes.
@@ -149,6 +150,7 @@ Questions about this Privacy Policy or the Extension:
 - 仅在匹配的搜索结果页本地读取/改写结果条目，并可能在浏览器内请求下一页结果以拼接显示。
 - 可选固定相关搜索与显示站点徽标。开启站点徽标后，原生图标不可用时，浏览器可能直接向目标站发起 HTTPS `/favicon.ico` 请求，请求不带来源页地址。图片无法加载时显示域名首字母。按偏好打开结果时，目标地址传给扩展后台用于创建标签。
 - 已访问弱化使用 CSS。点击 Bing 结果标题，或扩展成功创建新标签／后台标签后，可在当前结果页标记相同目标的标题。目标地址仅保留在当前页会话内存中，刷新或会话释放后清除。扩展不读取浏览历史、不写入这些记录，也不确认目标页面是否加载成功。
+- 新增 **`contextMenus`** 权限，仅用于扩展工具栏图标的右键布局菜单；菜单文案跟随界面语言，选择模式写入与弹窗相同的本地偏好，不读取页面内容或浏览历史。
 - **不**出售用户数据，也**不**将数据用于广告或与核心功能无关的用途。
 
 如有疑问，请通过上述 GitHub Issues 联系。

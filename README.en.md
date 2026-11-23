@@ -11,7 +11,8 @@ A Chrome extension that makes **Google, Bing, DuckDuckGo, and Baidu desktop web 
 - **Quick presets**: Simple / Focused reading / Minimal distractions adjust card density, column width, and content visibility. Set the layout separately on the main popup screen, and set automatic pagination, paging options, and result opening under Advanced.
 - **Page-only domain hiding**: Open Advanced → Hide domains on this page, enter domains such as `pinterest.com` or `zhihu.com`, then select Apply. Filtering includes subdomains and appended results. Select Restore all to clear the rules for the current page.
 - **Special result blocks**: Separate switches for People Also Ask, video carousels and featured snippets. Recognized blocks can be expanded in place and restored without replacing their nodes.
-- **Column modes**: Original / Single / Single-center / Double (results as cards)
+- **Column modes**: Original / Single / Single-center / Double (results as cards). Right-click the toolbar icon to switch; the hover title shows the current mode
+- **Toolbar context menu**: Change the layout preference from any page. Open search tabs update immediately through the existing storage subscription, and labels follow the popup language. The menu also links to the [GitHub repository](https://github.com/juhaozero/browser-search-plugin/)
 - **AI answer layout**: Single-center and Double center recognized Google AI Overviews, Bing Copilot answers, DuckDuckGo Search Assist, and Baidu AI answers. Google AI Overviews that arrive after the results appear centered from their first render.
 - **Auto-page**: Append the next page of organic results as you scroll near the bottom. Turn off auto-page to restore native pagination controls
 - **DuckDuckGo**: When the native More Results button is available, auto-page follows the extension’s batch settings. DuckDuckGo controls loading when its own Infinite Scroll setting is enabled
@@ -95,6 +96,7 @@ PRIVACY.md           # Privacy policy
 ## Permissions
 
 - `storage` — save layout and auto-page preferences
+- `contextMenus` — toolbar icon right-click layout menu only; does not read page content
 - Content scripts run on matching Google, Bing, DuckDuckGo, and Baidu web searches. The Baidu homepage script detects the first in-page search navigation.
 
 The extension does **not** upload your queries or page content to a developer server. See [PRIVACY.md](./PRIVACY.md).

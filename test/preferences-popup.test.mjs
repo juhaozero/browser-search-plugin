@@ -227,7 +227,7 @@ test("弹窗默认英文并可切换中文", async () => {
 test("清单有弹窗和 storage 权限", () => {
   const manifest = JSON.parse(readFileSync(new URL("../extension/manifest.json", import.meta.url), "utf8"));
   assert.equal(manifest.action.default_popup, "popup.html");
-  assert.deepEqual(manifest.permissions, ["storage"]);
+  assert.deepEqual(manifest.permissions, ["storage", "contextMenus"]);
 });
 
 function popupHtml() {
