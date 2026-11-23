@@ -133,11 +133,11 @@ test("refresh builds radio action menus and sets the hover title", async () => {
     ["bsp-column-single-center", "单列居中", false, "radio", ["action"]],
     ["bsp-column-double", "双列", false, "radio", ["action"]],
     ["bsp-layout-separator", undefined, undefined, "separator", ["action"]],
-    [GITHUB_MENU_ID, "GitHub 项目主页", undefined, undefined, ["action"]],
+    [GITHUB_MENU_ID, "SearchLayout", undefined, undefined, ["action"]],
   ]);
 });
 
-test("GitHub menu item opens the project repository", async () => {
+test("SearchLayout menu item opens the project repository", async () => {
   const { api, createdTabs } = createApi();
   assert.equal(await openGitHubFromMenu(api), true);
   assert.deepEqual(createdTabs, [GITHUB_REPO_URL]);
